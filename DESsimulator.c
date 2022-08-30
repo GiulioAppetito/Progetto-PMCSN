@@ -13,9 +13,11 @@
 //#define DEBUG2      //areaFood
 
 #define START         0.0              /* initial time                   */
-#define STOP          60.0             /* terminal (close the door) time */
+#define STOP          100000.0             /* terminal (close the door) time */
 #define INFINITY      (100.0 * STOP)   /* must be much larger than STOP  */
 #define SEED          123456789
+
+// che facciamo?
 
 #define SERVERS_BIGLIETTERIA         1   /* number of servers for each center */
 #define SERVERS_CONTROLLO_BIGLIETTI  2
@@ -32,7 +34,7 @@
 double MU_BIGLIETTERIA       = 3.0;
 double MU_CONTROLLOBIGLIETTI = 4.0;      /* da modificare */
 double MU_CASSA_FOOD_AREA    = 7.0;
-double MU_FOOD_AREA          = 2.0;
+double MU_FOOD_AREA          = 3.0;
 double MU_GADGETS_AREA       = 2.0;
 
 double lambda;
@@ -73,7 +75,13 @@ struct{
   double last;                    /* last arrival time                   */
 } t;
 
-typedef struct{
+typedef struct serviceData{
+  double mean;
+  int stream;
+}serviceData;
+
+
+typedef struct center{
   double node;                    /* time integrated number in the node  */
   double queue;                   /* time integrated number in the queue */
   double service;                 /* time integrated number in service   */
@@ -84,12 +92,9 @@ typedef struct{
   double firstArrival;
   double lastArrival;
   double lastService;
+  serviceData *serviceParams;
+  
 }center;
-
-typedef struct serviceData{
-  double mean;
-  int stream;
-}serviceData;
 
 typedef struct event{    /* the next-event    */
   double t;                                  /*   next event time      */
@@ -140,7 +145,7 @@ center cinema;
 
 double GetArrival()
 /* ---------------------------------------------
- * generate the next arrival time, with rate 1/2
+ * generate the next arrival time
  * ---------------------------------------------
  */ 
 {
@@ -287,75 +292,143 @@ ticketMode routingBeforeBiglietteria(){
   return PHYSICAL;
 }
 
-void updateIntegrals(center *center, multiserver multiserver[], int signal){
+void updateIntegrals(center *center, multiserver multiserver[]){
   if (center->number > 0)  {        
         /* update integrals  */
         center->node    += (t.next - t.current) * center->number;
         if(center->number > center->servers){
-            if((signal == 1) && (((t.next - t.current) * (center->number - center->servers)) < 0)){
-              printf("\n%s\n",center->name);
-              printf("center->queue   += (t.next - t.current) * (center->number - center->servers)\n");
-              printf("%f += (%f - %f) * (%f - %f)\n\n",center->queue, t.next, t.current, center->number, center->servers);
-            }
           center->queue   += (t.next - t.current) * (center->number - center->servers);
+          
         }
-        if(center->servers == 1){
-          center->service += (t.next - t.current)*1;
-        }else{
-          for(int i=0; i<center->servers; i++){
-            // !! da rifare !! //
-            center->service += multiserver[i].service;
-          }
-        }
+        center->service += (t.next - t.current) * Min(center->servers, center->number);       
   }
 }
 
 void visualizeStatistics(center *center){
-    printf("\nSTATISTICHE\033[22;32m %s\033[0m per %.0f jobs [Fascia oraria %d] :\n\n", center->name, center->index, fasciaOraria);
+    printf("\nSTATISTICHE\033[22;32m %s\033[0m per %.0f jobs [Fascia oraria %d] :\n", center->name, center->index, fasciaOraria);
     double obsTime = center->lastArrival;
     double obsTime2 = center->lastService - center->firstArrival;
+
+    double theorical_lambda;
+    if(strcmp(center->name, "biglietteria_0")==0){
+      theorical_lambda = lambda*(1-p_online)*0.5;
+    }
+    if(strcmp(center->name, "biglietteria_1")==0){
+      theorical_lambda = lambda*(1-p_online)*0.5;
+    }
+    if(strcmp(center->name, "cassaFoodArea")==0){
+      theorical_lambda = lambda*p_foodArea;
+    }
+   
+    double theorical_interarrival = 1/theorical_lambda;
+    double theorical_mu = center->serviceParams->mean;
+    double theorical_meanServiceTime = 1/theorical_mu;
+    double theorical_ro = theorical_lambda / theorical_mu;
+    double theorical_Tq = (theorical_ro*theorical_meanServiceTime)/(1-theorical_ro);
+    double theorical_Nq = theorical_lambda * theorical_Tq;
+    double theorical_N = (theorical_meanServiceTime + theorical_Tq)*theorical_lambda;
+    
+
     // mean interrarrivaltime: an/n
-    printf("   average interarrival time = %6.3f\n", obsTime / (center->index) );
-    printf("   average arrival rate .... = %6.3f\n", center->index / obsTime);
+    printf(" ______________________________________________________\n");
+    printf("|   SIMULATION                          |   THEORICAL  |\n");
+    printf("|_______________________________________|______________|\n");
+    printf("|  average interarrival time = %6.3f   |   %6.3f     |\n", obsTime / (center->index), theorical_interarrival);
+    printf("|  average arrival rate .... = %6.3f   |   %6.3f     |\n", center->index / obsTime, theorical_lambda);
     //printf("   [con t.current] average arrival rate .... = %6.3f\n", center->index  / t.current);
 
-    printf("   theorical arrival rate .. = %6.3f\n", lambda*0.5*(1-p_online));
-
     // mean wait: E(w) = sum(wi)/n
-    printf("   average wait ............ = %6.3f\n", center->node / center->index);
+    printf("|  average wait ............ = %6.3f   |   %6.3f     |\n", center->node / center->index, theorical_Tq + theorical_meanServiceTime);
     // mean delay: E(d) = sum(di)/n
-    printf("   average delay ........... = %6.3f\n", center->queue / center->index);
+    printf("|  average delay ........... = %6.3f   |   %6.3f     |\n", center->queue / center->index, theorical_Tq);
 
     /* consistency check: E(w) = E(d) + E(s) */
 
-
     // mean service time : E(s) = sum(si)/n
-    printf("   average service time .... = %6.3f\n", center->service / center->index);
-    printf("   average # in the node ... = %6.3f\n", center->node / obsTime2);
-    printf("   average # in the queue .. = %6.3f\n", center->queue / obsTime2);
-    printf("   utilization ............. = %6.3f\n", center->service / obsTime2);
+    printf("|  average service time .... = %6.3f   |   %6.3f     |\n", center->service / center->index, theorical_meanServiceTime);
+    printf("|  average # in the node ... = %6.3f   |   %6.3f     |\n", center->node / obsTime2, theorical_N);
+    printf("|  average # in the queue .. = %6.3f   |   %6.3f     |\n", center->queue / obsTime2, theorical_lambda * theorical_Tq);
+    printf("|  utilization ............. = %6.3f   |   %6.3f     |\n", center->service / obsTime2, theorical_ro);
+    printf("|_______________________________________|______________|\n");
+}
+
+int Factorial(int m){
+  if(m==0 || m == 1){
+    return 1;
+  }
+  int n = m*Factorial(m-1);
+  return n;
+}
+
+double SumUp(int m, double ro){
+  double sum = 0;
+  for(int i = 0; i < m; i++){
+    sum += (pow(m*ro,i))/Factorial(i);
+  }
+  return sum;
 }
 
 void visualizeStatisticsMultiservers(center *center, multiserver multiserver[], int numberOfServers){
-    printf("\nSTATISTICHE\033[22;32m %s\033[0m per %.0f jobs [Fascia oraria %d] :\n\n", center->name, center->index, fasciaOraria);
-    printf("   average interarrival time ...... = %6.3f\n", (center->lastArrival - center->firstArrival) / center->index);
-    printf("   average wait ................... = %6.3f\n", center->node / center->index);
-    printf("   average delay .................. = %6.3f\n\n", center->queue / center->index);
-    for(int i=0; i<numberOfServers; i++){
-      printf("   [server %d] average service time = %6.3f\n", i, multiserver[i].service / multiserver[i].served);
-      printf("   [server %d] service time ....... = %6.3f\n", i, multiserver[i].service);
-      printf("   [server %d] utilization ........ = %6.3f\n\n", i, multiserver[i].service / t.current);
-    }
-  /*
-    printf("   average wait ............ = %6.2f\n", center->node / center->index);
-    printf("   average delay ........... = %6.2f\n", center->queue / center->index);
-*/
-/*
-    //printf("   average # in the node ... = %6.2f\n", center->node / t.current);    
-    printf("   average # in the queue .. = %6.2f\n", center->queue / t.current);
 
-    printf("   utilization ............. = %6.2f\n", ? );
-*/
+    double theorical_lambda;
+    if(strcmp(center->name, "controlloBiglietti")==0){
+      theorical_lambda = lambda;
+    } 
+    if(strcmp(center->name, "foodArea")==0){
+      theorical_lambda = lambda*p_foodArea;
+    }
+    if(strcmp(center->name, "gadgetsArea")==0){
+      theorical_lambda = lambda*p_gadgetsArea + lambda*p_foodArea*p_gadgetsAfterFood;
+    }  
+    double theorical_interarrival = 1/theorical_lambda;
+
+
+    int m = center->servers;
+    double mu = center->serviceParams->mean;
+    //printf("MU: %f\n", mu);
+    /* E(s) = 1 / mu * m */
+    double theorical_service = 1 / (mu*m);
+    /* ro = lambda * E(s) */
+    double ro = theorical_lambda*theorical_service;
+    //printf("RO: %f\n", ro);
+
+    double p_zero = 1 / (  ((pow((m*ro),m)) / ((1-ro)*(Factorial(m))) ) + SumUp(m, ro));
+    double p_q = p_zero * ((pow((m*ro),m)) / (Factorial(m)*(1-ro)) );
+
+
+
+    // E(Tq) = Pq*E(s) / (1-ro)
+    double theorical_delay = (p_q * theorical_service) / (1-ro);
+    // E(Ts) = E(si) + E(Tq)
+    double theorical_wait = theorical_delay + 1/mu;
+
+
+    printf("\nSTATISTICHE\033[22;32m %s\033[0m per %.0f jobs [Fascia oraria %d] :\n\n", center->name, center->index, fasciaOraria);
+    
+    printf("Pq = %f\n", p_q);
+    printf("P(o) = %f\n", p_zero);
+    printf("average delay: %f\n", theorical_delay);
+    printf(" ______________________________________________________\n");
+    printf("|   SIMULATION                          |   THEORICAL  |\n");
+    printf("|_______________________________________|______________|\n");
+    printf("|  average interarrival time = %6.3f   |   %6.3f     |\n", ((center->lastArrival - center->firstArrival) / center->index), theorical_interarrival);  //ok
+    printf("|  average arrival rate .... = %6.3f   |   %6.3f     |\n", center->index / (center->lastArrival - center->firstArrival), theorical_lambda);                                   //ok
+
+    // mean wait: E(w) = sum(wi)/n                 
+    printf("|  average wait ............ = %6.3f   |   %6.3f     |\n", center->node / center->index, theorical_wait);                                            //ok
+    // mean delay: E(d) = sum(di)/n               
+    printf("|  average delay ........... = %6.3f   |   %6.3f     |\n", center->queue / center->index, theorical_delay);                                          //ok
+
+    /* consistency check: E(w) = E(d) + E(s) */
+
+    // mean service time : E(s) = sum(si)/n
+    printf("|  average service time .... = %6.3f   |   %6.3f     |\n", center->service / center->index, theorical_service);                                      //ok
+    /* E(N) = E(Ts) * lamba */
+    printf("|  average # in the node ... = %6.3f   |   %6.3f     |\n", center->node / (center->lastService - center->firstArrival), theorical_lambda * theorical_wait);
+    /* E(N) = E(Ts) * lamba */
+    printf("|  average # in the queue .. = %6.3f   |   %6.3f     |\n", center->queue / (center->lastService - center->firstArrival), theorical_lambda * theorical_delay);
+    printf("|  utilization ............. = %6.3f   |   %6.3f     |\n", center->service / (center->servers*(center->lastService - center->firstArrival)), ro);                     //ok
+    printf("|_______________________________________|______________|\n");
 }
 
 void visualizeRunParameters(double tot, double lambda, double p_foodArea, double p_gadgetsArea, double p_gadgetsAfterFood){
@@ -470,11 +543,17 @@ int simulation(int fascia_oraria){
   serviceData foodAreaService;
   serviceData gadgetsAreaService;
   initServiceData(&biglietteriaService0, MU_BIGLIETTERIA, STREAM_BIGLIETTERIA0);
+  biglietteria[0].serviceParams = &biglietteriaService0;
   initServiceData(&biglietteriaService1, MU_BIGLIETTERIA, STREAM_BIGLIETTERIA1);
+  biglietteria[1].serviceParams = &biglietteriaService1;
   initServiceData(&controlloBigliettiService, MU_CONTROLLOBIGLIETTI, STREAM_CONTROLLOBIGLIETTI);
+  controlloBiglietti.serviceParams = &controlloBigliettiService;
   initServiceData(&cassaFoodAreaService, MU_CASSA_FOOD_AREA, STREAM_CASSA_FOOD_AREA);
+  cassaFoodArea.serviceParams = &cassaFoodAreaService;
   initServiceData(&foodAreaService, MU_FOOD_AREA, STREAM_FOOD_AREA);
+  foodArea.serviceParams = &foodAreaService;
   initServiceData(&gadgetsAreaService, MU_GADGETS_AREA, STREAM_GADGETS_AREA);
+  gadgetsArea.serviceParams = &gadgetsAreaService;
 
   event departuresControlloBiglietti[SERVERS_CONTROLLO_BIGLIETTI];
    for(int i=0; i<SERVERS_CONTROLLO_BIGLIETTI; i++){
@@ -518,18 +597,18 @@ int simulation(int fascia_oraria){
     e = NextEvent(event);                        /* next event index  */
     t.next = event[e].t;                         /* next event time   */
     for(int j=0; j<2; j++){
-      updateIntegrals(&biglietteria[j], NULL,0);
+      updateIntegrals(&biglietteria[j], NULL);
     }
 
     #ifdef DEBUG2
       printFoodStats(&foodArea);
     #endif
 
-    updateIntegrals(&controlloBiglietti,controlloBiglietti_MS,0);
-    updateIntegrals(&cassaFoodArea, NULL,0);
-    updateIntegrals(&foodArea, areaFood_MS,0);
-    updateIntegrals(&gadgetsArea, areaGadgets_MS,1);
-    updateIntegrals(&cinema, NULL,0);
+    updateIntegrals(&controlloBiglietti,controlloBiglietti_MS);
+    updateIntegrals(&cassaFoodArea, NULL);
+    updateIntegrals(&foodArea, areaFood_MS);
+    updateIntegrals(&gadgetsArea, areaGadgets_MS);
+    updateIntegrals(&cinema, NULL);
 
     t.current       = t.next;                    /* advance the clock */
 
@@ -566,7 +645,6 @@ int simulation(int fascia_oraria){
         biglietteria[i].lastArrival = t.current;
 
         if(t.current < biglietteria[i].firstArrival){
-          printf("\n FIRST ARRIVAL !! : %f\n", t.current);
           biglietteria[i].firstArrival = t.current;
         }
         event[0].t = GetArrival();    /* generate the next arrival event */
@@ -1002,11 +1080,10 @@ int simulation(int fascia_oraria){
   
   visualizeRunParameters(cinema.index, lambda, p_foodArea, p_gadgetsArea, p_gadgetsAfterFood);
 
-  printf("\nbiglietteria_0 ha il %.2f degli arrivi fisici.\n",biglietteria[0].index/(biglietteria[0].index + biglietteria[1].index));
-  printf("biglietteria_0 ha il %.2f degli arrivi totali.",biglietteria[0].index/(cinema.index));
+  //printf("\nbiglietteria_0 ha il %.2f degli arrivi fisici.\n",biglietteria[0].index/(biglietteria[0].index + biglietteria[1].index));
+  //printf("biglietteria_0 ha il %.2f degli arrivi totali.",biglietteria[0].index/(cinema.index));
   visualizeStatistics(&biglietteria[0]);
-  printf("\nbiglietteria_1 ha il %.2f degli arrivi fisici.\n",biglietteria[1].index/(biglietteria[0].index + biglietteria[1].index));
-  printf("biglietteria_1 ha il %.2f degli arrivi totali.",biglietteria[1].index/(cinema.index));
+  //printf("\nbiglietteria_1 ha il %.2f degli arrivi fisici.\n",biglietteria[1].index/(biglietteria[0].index + biglietteria[1].index));
   visualizeStatistics(&biglietteria[1]);
   visualizeStatisticsMultiservers(&controlloBiglietti, controlloBiglietti_MS, SERVERS_CONTROLLO_BIGLIETTI);
   visualizeStatistics(&cassaFoodArea);
@@ -1023,16 +1100,5 @@ int simulation(int fascia_oraria){
     }
     return b;
   }
-
-  double cinemaLastArrival = max(max(biglietteria[0].lastArrival,biglietteria[1].lastArrival),controlloBiglietti.lastArrival);
-  printf("\n\nCINEMA :\naverage arrival rate = %6.3f", cinema.index / STOP);
-  printf("biglietteria totale lambda = %6.3f",(biglietteria[0].index + biglietteria[1].index)/STOP);
-  
-  printf("\ncinemaIndex = %6.2f",cinema.index);
-  printf("\nbiglietteria[0].index = %6.2f",biglietteria[0].index);
-  printf("\nbiglietteria[1].index = %6.2f",biglietteria[1].index);
-
-  printf("\nnum_online = %d",num_online);
-
   return (0);
 }
