@@ -221,7 +221,7 @@ void visualizeStatistics(center *center){
     // mean delay: E(d) = sum(di)/n
     printf("|  average delay ........... = %6.3f   |   %6.3f     |\n", center->queue / center->index, theorical_Tq);
 
-    /* consistency check: E(w) = E(d) + E(s) */
+    /* consistency check: E(Ts) = E(Tq) + E(s) */
 
     // mean service time : E(s) = sum(si)/n
     printf("|  average service time .... = %6.3f   |   %6.3f     |\n", center->service / center->index, theorical_meanServiceTime);
@@ -274,7 +274,7 @@ void visualizeStatisticsMultiservers(center *center){
     printf("|   SIMULATION                          |   THEORICAL  |\n");
     printf("|_______________________________________|______________|\n");
     printf("|  average interarrival time = %6.3f   |   %6.3f     |\n", ((center->lastArrival - center->firstArrival) / center->index), theorical_interarrival);  //ok
-    printf("|  average arrival rate .... = %6.3f   |   %6.3f     |\n", center->index / (center->lastArrival - center->firstArrival), theorical_lambda);                                   //ok
+    printf("|  average arrival rate .... = %6.3f   |   %6.3f     |\n", center->index / (center->lastArrival - center->firstArrival), theorical_lambda);                                //ok
 
     // mean wait: E(w) = sum(wi)/n                 
     printf("|  average wait ............ = %6.3f   |   %6.3f     |\n", (center->node) / center->index, theorical_wait);                                            //ok
@@ -284,7 +284,8 @@ void visualizeStatisticsMultiservers(center *center){
     /* consistency check: E(w) = E(d) + E(s) */
 
     /* mean service time : E(s) = sum(si)/n */
-    printf("|  average service time .... = %6.3f   |   %6.3f     |\n", (center->service/m) / center->index, theorical_service);                                      //ok
+    printf("|  average service time .... = %6.3f   |   %6.3f     |\n", (center->service/m) / center->index, theorical_service);   
+    printf("|  E(Si) ................... = %6.3f   |   %6.3f     |\n", (center->service) / center->index, 1/mu);                                      //ok
     /* E(N) = E(Ts) * lamba */
     printf("|  average # in the node ... = %6.3f   |   %6.3f     |\n", (center->node) / (center->lastService - center->firstArrival), theorical_lambda * theorical_wait);
     /* E(N) = E(Ts) * lamba */
@@ -305,17 +306,6 @@ void visualizeRunParameters(double tot, double lambda, double p_foodArea, double
 }
 
 int simulation(int fascia_oraria){
-  
-  system("cls");
-  printf("\033[22;32m _______________________________ \n\033[0m");
-  printf("\033[22;32m|                             | |\n\033[0m");
-  printf("\033[22;32m|    GESTIONE DI UN CINEMA    | |\n\033[0m");
-  printf("\033[22;32m|        Progetto PMCSN       | |\n\033[0m");
-  printf("\033[22;32m|                             | |\n\033[0m");
-  printf("\033[22;32m|      Brinati Anastasia      | |\n\033[0m");
-  printf("\033[22;32m|       Appetito Giulio       | |\n\033[0m");
-  printf("\033[22;32m|_____________________________| |\n\033[0m");
-  printf("\033[22;32m|_______________________________|\n\033[0m");
 
   fasciaOraria = fascia_oraria;
   switch(fasciaOraria){
