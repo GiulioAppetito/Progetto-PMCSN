@@ -13,7 +13,7 @@
 //#define DEBUG2      //areaFood
 
 #define START         0.0              /* initial time                   */
-#define STOP          100000.0             /* terminal (close the door) time */
+#define STOP          60.0             /* terminal (close the door) time */
 #define INFINITY      (100.0 * STOP)   /* must be much larger than STOP  */
 #define SEED          123456789
 
@@ -199,20 +199,33 @@ int FindIdleServer(multiserver multiserver[], int servers){
   /* -----------------------------------------------------
  * return the index of the available server idle longest
  * -----------------------------------------------------
- */
+ 
   int s;
   double current = INFINITY; /* current min */
 
-  for(int i=0; i<servers; i++){
-    if(multiserver[i].occupied == 0){              /* check if the multiserver is available == 0 */
-      if(multiserver[i].service <= current){       /* find which                                 */ 
-        current = multiserver[i].service;          /* has been idle longest                      */
-        s = i;
-      }
-    }
-  }
-  return (s);
+//  for(int i=0; i<servers; i++){
+//    if(multiserver[i].occupied == 0){              /* check if the multiserver is available == 0 */
+//      if(multiserver[i].service <= current){       /* find which                                 */ 
+//        current = multiserver[i].service;          /* has been idle longest                      */
+//        s = i;
+//      }
+//    }
+//  }
+//  return (s);
 
+  int s = 0;
+  double current = INFINITY; /* current min */
+
+  for(int i=0; i<servers; i++){
+    /* se server idle */
+    if(multiserver[i].occupied == 0){ 
+      s = i;
+      return s;
+    }
+
+  }
+  return s;
+  
 }
 
 double FindNextDeparture(event ms[], int n_servers){
@@ -300,7 +313,10 @@ void updateIntegrals(center *center, multiserver multiserver[]){
           center->queue   += (t.next - t.current) * (center->number - center->servers);
           
         }
-        center->service += (t.next - t.current) * Min(center->servers, center->number);       
+        //if(center->servers == 1){
+          center->service += (t.next - t.current) * Min(center->servers, center->number); 
+        //}
+              
   }
 }
 
@@ -368,7 +384,7 @@ double SumUp(int m, double ro){
   return sum;
 }
 
-void visualizeStatisticsMultiservers(center *center, multiserver multiserver[], int numberOfServers){
+void visualizeStatisticsMultiservers(center *center, multiserver multiserver[]){
 
     double theorical_lambda;
     if(strcmp(center->name, "controlloBiglietti")==0){
@@ -403,6 +419,9 @@ void visualizeStatisticsMultiservers(center *center, multiserver multiserver[], 
     double theorical_wait = theorical_delay + 1/mu;
 
 
+
+    printf("\nSTATISTICHE\033[22;32m %s\033[0m AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA] :\n\n", center->name);
+
     printf("\nSTATISTICHE\033[22;32m %s\033[0m per %.0f jobs [Fascia oraria %d] :\n\n", center->name, center->index, fasciaOraria);
     
     printf("Pq = %f\n", p_q);
@@ -421,13 +440,18 @@ void visualizeStatisticsMultiservers(center *center, multiserver multiserver[], 
 
     /* consistency check: E(w) = E(d) + E(s) */
 
+    double ser = 0.0;
+    /* assurdità: */ printf("\n ASSURDITA': \n center->service = %f \n \n", center->service);
+    /* */ for(int i=0; i<m; i++){ ser+= multiserver[i].service; } printf("\n ASSURDITA': \n serv = %f \n \n", ser);
+    printf("Trying with serv\n\n");
+
     // mean service time : E(s) = sum(si)/n
-    printf("|  average service time .... = %6.3f   |   %6.3f     |\n", center->service / center->index, theorical_service);                                      //ok
+    printf("|  average service time .... = %6.3f   |   %6.3f     |\n", (ser/m) / center->index, theorical_service);                                      //ok
     /* E(N) = E(Ts) * lamba */
     printf("|  average # in the node ... = %6.3f   |   %6.3f     |\n", center->node / (center->lastService - center->firstArrival), theorical_lambda * theorical_wait);
     /* E(N) = E(Ts) * lamba */
     printf("|  average # in the queue .. = %6.3f   |   %6.3f     |\n", center->queue / (center->lastService - center->firstArrival), theorical_lambda * theorical_delay);
-    printf("|  utilization ............. = %6.3f   |   %6.3f     |\n", center->service / (center->servers*(center->lastService - center->firstArrival)), ro);                     //ok
+    printf("|  utilization ............. = %6.3f   |   %6.3f     |\n", ser / (center->servers*(center->lastService - center->firstArrival)), ro);                     //ok
     printf("|_______________________________________|______________|\n");
 }
 
@@ -489,7 +513,7 @@ int simulation(int fascia_oraria){
       break;
     default:
       printRed("Selezione non valida.");
-      return;
+      return 0;
 
   }
   p_online = P_ONLINE;
@@ -729,6 +753,10 @@ int simulation(int fascia_oraria){
           
           /* segnalo che è occupied */
           controlloBiglietti_MS[idleServer_controlloBiglietti].occupied = 1;
+
+          
+          /* assurdità:  controlloBiglietti.service += service;*/
+
           /* registro l'aumento di tempo di attività aggiungendo il tempo di servizio del nuovo job */
           controlloBiglietti_MS[idleServer_controlloBiglietti].service += service;
           /* incremento il numero di job serviti */
@@ -762,6 +790,10 @@ int simulation(int fascia_oraria){
           /* segnalo che è occupied */
           controlloBiglietti_MS[idleServer_controlloBiglietti].occupied = 1;
           /* registro l'aumento di tempo di attività aggiungendo il tempo di servizio del nuovo job */
+
+
+          /* assurdità: controlloBiglietti.service += service; */
+
           controlloBiglietti_MS[idleServer_controlloBiglietti].service += service;
           /* incremento il numero di job serviti */
           controlloBiglietti_MS[idleServer_controlloBiglietti].served++;
@@ -794,10 +826,12 @@ int simulation(int fascia_oraria){
         if(controlloBiglietti.number >= SERVERS_CONTROLLO_BIGLIETTI){
           
           double service = GetService(&controlloBigliettiService);
-          /* segnalo che è occupied */
-          /* anche se credo sia superfluo: controlloBiglietti_MS[e_cb].occupied = 1; */
+
           /* registro l'aumento di tempo di attività aggiungendo il tempo di servizio del nuovo job */
           controlloBiglietti_MS[e_cb].service += service;
+
+          /* assurdità: controlloBiglietti.service += service; */
+
           /* incremento il numero di job serviti */
           controlloBiglietti_MS[e_cb].served++;
           departuresControlloBiglietti[e_cb].t = t.current + service;
@@ -1085,14 +1119,14 @@ int simulation(int fascia_oraria){
   visualizeStatistics(&biglietteria[0]);
   //printf("\nbiglietteria_1 ha il %.2f degli arrivi fisici.\n",biglietteria[1].index/(biglietteria[0].index + biglietteria[1].index));
   visualizeStatistics(&biglietteria[1]);
-  visualizeStatisticsMultiservers(&controlloBiglietti, controlloBiglietti_MS, SERVERS_CONTROLLO_BIGLIETTI);
+  visualizeStatisticsMultiservers(&controlloBiglietti, controlloBiglietti_MS);
   visualizeStatistics(&cassaFoodArea);
-  visualizeStatisticsMultiservers(&foodArea, areaFood_MS, SERVERS_FOOD_AREA);
+  visualizeStatisticsMultiservers(&foodArea, areaFood_MS);
   #ifdef DEBUG
     printf("*** FINAL *** gadgetsArea.node = %f | ",gadgetsArea.node);
     printf("*** FINAL *** gadgetsArea.index = %f\n",gadgetsArea.index);
   #endif
-  visualizeStatisticsMultiservers(&gadgetsArea, areaGadgets_MS, SERVERS_GADGETS_AREA);
+  visualizeStatisticsMultiservers(&gadgetsArea, areaGadgets_MS);
   
   double max(double a, double b){
     if (a>b){
