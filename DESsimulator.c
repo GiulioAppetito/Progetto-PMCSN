@@ -8,16 +8,17 @@
 #include <math.h>
 #include "rngs.h"                      /* the multi-stream generator */
 #include "rvgs.h"                      /* random variate generators  */
+#include "datastructures.h"
+#include "ourlib.h"
 
 //#define DEBUG 
-//#define DEBUG2      //areaFood
+//#define DEBUG2
 
 #define START         0.0              /* initial time                   */
 #define STOP          60.0             /* terminal (close the door) time */
 #define INFINITY      (100.0 * STOP)   /* must be much larger than STOP  */
 #define SEED          123456789
 
-// che facciamo?
 
 #define SERVERS_BIGLIETTERIA         1   /* number of servers for each center */
 #define SERVERS_CONTROLLO_BIGLIETTI  2
@@ -38,7 +39,7 @@ double MU_FOOD_AREA          = 3.0;
 double MU_GADGETS_AREA       = 2.0;
 
 double lambda;
-
+center cinema;
 
 #define STREAM_ARRIVALS            0
 #define STREAM_BIGLIETTERIA0       1
@@ -62,86 +63,12 @@ double lambda;
 #define P_GADGETS_AFTER_FOOD_3 0.100
 #define P_ONLINE               0.2
 
-/* da cancellare */
-int arrivalsControllo;
-int departuresControllo;
-int arrivalsBiglietteria;
-int departuresBiglietteria0;
-int departuresBiglietteria1;
-
-struct{
-  double current;                 /* current time                        */
-  double next;                    /* next (most imminent) event time     */
-  double last;                    /* last arrival time                   */
-} t;
-
-typedef struct serviceData{
-  double mean;
-  int stream;
-}serviceData;
-
-
-typedef struct center{
-  double node;                    /* time integrated number in the node  */
-  double queue;                   /* time integrated number in the queue */
-  double service;                 /* time integrated number in service   */
-  double index;                     /* used to count departed jobs */
-  double number;                    /* number in the node */
-  double servers;
-  char *name;
-  double firstArrival;
-  double lastArrival;
-  double lastService;
-  serviceData *serviceParams;
-  
-}center;
-
-typedef struct event{    /* the next-event    */
-  double t;                                  /*   next event time      */
-  int    x;                                  /*   event status, 0 or 1 */
-}event;                  /* [0 : a_biglietteria | 1 : c_biglietteria[0] | 2 : c_biglietteria[1] | 3 : a0_controlloBiglietti | 4 : a1_controlloBiglietti | 5 : c_controlloBiglietti | 6 : a_cassaFood | 7 : c_cassaFood | 8 : a_foodArea | 9 : c_foodArea | 10 : a_gadgetsArea | 11 : c_gadgetsArea] */
-
-typedef struct multiserver{
-    double service;
-    int served;
-    int occupied;
-} multiserver;
-
-typedef enum choice{
-    FOODAREA,
-    GADGETSAREA,
-    NONE
-} choice;
-
-typedef enum ticketMode{
-  ONLINE,
-  PHYSICAL
-} ticketMode;
-
 double arrival = START;
 double p_foodArea;
 double p_gadgetsArea;
 double p_gadgetsAfterFood;
 double p_online;
 int fasciaOraria = 0;
-int routingControlloTimes = 0;
-
-#ifdef DEBUG
-  int case6Iterations = 0;
-#endif
-
-double Min(double a, double c)
-/* ------------------------------
- * return the smaller of a, b
- * ------------------------------
- */
-{ 
-  if (a < c)
-    return (a);
-  else
-    return (c);
-} 
-center cinema;
 
 double GetArrival()
 /* ---------------------------------------------
@@ -153,7 +80,7 @@ double GetArrival()
   double mean = 1/lambda;
   arrival += Exponential(mean);
   return (arrival);
-} 
+}
 
 double GetService(serviceData *center)
 /* --------------------------------------------
@@ -195,73 +122,6 @@ int NextEvent(event events[])
   return e;
 }
 
-int FindIdleServer(multiserver multiserver[], int servers){
-  /* -----------------------------------------------------
- * return the index of the available server idle longest
- * -----------------------------------------------------
- */
-  int s;
-  double current = INFINITY; /* current min */
-
-  for(int i=0; i<servers; i++){
-    if(multiserver[i].occupied == 0){              /* check if the multiserver is available == 0 */
-      if(multiserver[i].service <= current){       /* find which                                 */ 
-        current = multiserver[i].service;          /* has been idle longest                      */
-        s = i;
-      }
-    }
-  }
-  return (s);
-/*
- * -----------------------------------------------------
- * return in order the index of the first available server
- * -----------------------------------------------------
- 
-  int s = 0;
-  double current = INFINITY;
-
-  for(int i=0; i<servers; i++){
-    
-    if(multiserver[i].occupied == 0){ 
-      s = i;
-      return s;
-    }
-
-  }
-  return s;
-  */
-}
-
-double FindNextDeparture(event ms[], int n_servers){
-  double departure = INFINITY;
-
-  for(int k=0; k<n_servers; k++){
-    if(ms[k].x == 1 && ms[k].t < departure){
-      departure = ms[k].t;
-    }
-  }
-
-  return departure;
-}
-
-void printRed(char *string){
-  printf("\033[22;31m%s\n\033[0m",string);
-}
-
-void initCenterStats(center *center, int servers, char *name){
-  center->node=0.0;
-  center->queue=0.0;
-  center->service=0.0;
-  center->index=0.0;
-  center->number = 0.0;
-  center->servers = servers;
-  center->name = name;
-  center->firstArrival = INFINITY;
-  center->lastArrival = 0.0;
-  center->lastService = 0.0;
-
-}
-
 int routingAfterBiglietteria(){
   int i = 0;
   SelectStream(STREAM_ROUTING_CONTROLLO);
@@ -286,7 +146,6 @@ choice routingAfterFoodArea(){
 choice routingAfterControlloBiglietti(){
   SelectStream(STREAM_ROUTING_CONTROLLO);
   double p = Uniform(0, 1);    /* routing probability p */
-  routingControlloTimes++;
   if(p < p_foodArea){
     return FOODAREA;
   }else if ( p < (p_foodArea + p_gadgetsArea)){
@@ -294,11 +153,6 @@ choice routingAfterControlloBiglietti(){
   }else{
     return NONE;
   }
-}
-
-void initServiceData(serviceData *center, double mu, int stream){
-  center->mean = mu;
-  center->stream = stream;
 }
 
 ticketMode routingBeforeBiglietteria(){
@@ -351,7 +205,6 @@ void visualizeStatistics(center *center){
     double theorical_meanServiceTime = 1/theorical_mu;
     double theorical_ro = theorical_lambda / theorical_mu;
     double theorical_Tq = (theorical_ro*theorical_meanServiceTime)/(1-theorical_ro);
-    //double theorical_Nq = theorical_lambda * theorical_Tq;
     double theorical_N = (theorical_meanServiceTime + theorical_Tq)*theorical_lambda;
     
 
@@ -378,23 +231,7 @@ void visualizeStatistics(center *center){
     printf("|_______________________________________|______________|\n");
 }
 
-int Factorial(int m){
-  if(m==0 || m == 1){
-    return 1;
-  }
-  int n = m*Factorial(m-1);
-  return n;
-}
-
-double SumUp(int m, double ro){
-  double sum = 0;
-  for(int i = 0; i < m; i++){
-    sum += (pow(m*ro,i))/Factorial(i);
-  }
-  return sum;
-}
-
-void visualizeStatisticsMultiservers(center *center, multiserver multiserver[]){
+void visualizeStatisticsMultiservers(center *center){
 
     double theorical_lambda;
     if(strcmp(center->name, "controlloBiglietti")==0){
@@ -465,19 +302,7 @@ void visualizeRunParameters(double tot, double lambda, double p_foodArea, double
     printf("\033[22;30mp_foodArea ....................... = %.2f %s\033[0m\n",p_foodArea*100,a);
     printf("\033[22;30mp_gadgetsArea .................... = %.2f %s\033[0m\n",p_gadgetsArea*100,a);
     printf("\033[22;30mp_gadgetsAfterFood ............... = %.2f %s\033[0m\n",p_gadgetsAfterFood*100,a);
-  }
-
-#ifdef DEBUG2
-  void printFoodStats(center  *foodArea){
-    printf("\033[22;31m\nAttributi foodArea ................. t.current = %f\n\n\033[0m",t.current);
-    printf("   foodArea->index = %6.2f\n", foodArea->index);
-    printf("   foodArea->node ............ = %6.2f\n", foodArea->node );
-    printf("   foodArea->queue ........... = %6.2f\n", foodArea->queue);
-    printf("   foodArea->service .... = %6.2f\n", foodArea->service);   
-  }
-#endif
-
-
+}
 
 int simulation(int fascia_oraria){
   
@@ -518,9 +343,6 @@ int simulation(int fascia_oraria){
 
   }
   p_online = P_ONLINE;
-  int arrivalsBiglietteria = 0;
-  int departuresBiglietteria0 = 0;
-  int departuresBiglietteria1 = 0;
 
   double food=0;
   double gadgets=0;
@@ -578,25 +400,13 @@ int simulation(int fascia_oraria){
   gadgetsArea.serviceParams = &gadgetsAreaService;
 
   event departuresControlloBiglietti[SERVERS_CONTROLLO_BIGLIETTI];
-   for(int i=0; i<SERVERS_CONTROLLO_BIGLIETTI; i++){
-    departuresControlloBiglietti[i].x = 0;
-    departuresControlloBiglietti[i].t = INFINITY;
-  }
+  initEvents(departuresControlloBiglietti, SERVERS_CONTROLLO_BIGLIETTI);
   event departuresAreaFood[SERVERS_FOOD_AREA];
-   for(int i=0; i<SERVERS_FOOD_AREA; i++){
-    departuresAreaFood[i].x = 0;
-    departuresAreaFood[i].t = INFINITY;
-  }
+  initEvents(departuresAreaFood, SERVERS_FOOD_AREA);
   event departuresGadgetsArea[SERVERS_GADGETS_AREA];
-   for(int i=0; i<SERVERS_GADGETS_AREA; i++){
-    departuresGadgetsArea[i].x = 0;
-    departuresGadgetsArea[i].t = INFINITY;
-  }
+  initEvents(departuresGadgetsArea, SERVERS_GADGETS_AREA);
   event event[NUMBER_OF_EVENTS];
-  for(int i=0; i<NUMBER_OF_EVENTS; i++){
-    event[i].x = 0;
-    event[i].t = 0.0;
-  }
+  initEvents(event, NUMBER_OF_EVENTS);
 
   PlantSeeds(SEED);
   arrival = START;
@@ -610,12 +420,8 @@ int simulation(int fascia_oraria){
   int e;
   int i;
 
-  int counter = 0;
-  int num_online = 0;
   while ((event[0].t < STOP) || ((biglietteria[0].number + biglietteria[1].number + controlloBiglietti.number + cassaFoodArea.number + foodArea.number + gadgetsArea.number) > 0)){
-     
-    counter++;
-    
+
     e = NextEvent(event);                        /* next event index  */
     t.next = event[e].t;                         /* next event time   */
     for(int j=0; j<2; j++){
@@ -640,9 +446,8 @@ int simulation(int fascia_oraria){
       cinema.index++;
       if(routingBeforeBiglietteria() == ONLINE){
       #ifdef DEBUG
-        printf("\033[22;35mArrival with online ticket\n\033[0m");
+        printRed("Arrival with online ticket \n");
       #endif
-      num_online++;
       double time = event[0].t;
       event[0].t = GetArrival();    /* generate the next arrival event */
       if (event[0].t > STOP)  {
@@ -654,14 +459,13 @@ int simulation(int fascia_oraria){
       x = 4;
       }else{
         #ifdef DEBUG
-          printf("\033[22;34mArrival with physical ticket\n\033[0m");
+          printfRed("Arrival with physical ticket \n");
         #endif
       }
     }
     switch(x){
       case 0:                         /* process an arrival to biglietteria */
 
-        arrivalsBiglietteria++;
         i = routingAfterBiglietteria();
         biglietteria[i].number++;
         biglietteria[i].lastArrival = t.current;
@@ -689,8 +493,6 @@ int simulation(int fascia_oraria){
         break;
       
       case 1:                            /* process a departure from biglietteria 0*/
-        departuresBiglietteria0++;
-      
         biglietteria[0].index++;
         #ifdef DEBUG  
           printf("@@@@@@@@@@@@@@@@@@@@@ ho incrementato biglietteria[0]\n");
@@ -710,7 +512,6 @@ int simulation(int fascia_oraria){
         break;
 
       case 2:                           /* process a departure from biglietteria 1*/
-        departuresBiglietteria1++;
         biglietteria[1].index++;
         #ifdef DEBUG  
           printf("@@@@@@@@@@@@@@@@@@@@@ ho incrementato biglietteria[1]\n");
@@ -1098,26 +899,13 @@ int simulation(int fascia_oraria){
   }
   
   visualizeRunParameters(cinema.index, lambda, p_foodArea, p_gadgetsArea, p_gadgetsAfterFood);
-
-  //printf("\nbiglietteria_0 ha il %.2f degli arrivi fisici.\n",biglietteria[0].index/(biglietteria[0].index + biglietteria[1].index));
-  //printf("biglietteria_0 ha il %.2f degli arrivi totali.",biglietteria[0].index/(cinema.index));
-  visualizeStatistics(&biglietteria[0]);
-  //printf("\nbiglietteria_1 ha il %.2f degli arrivi fisici.\n",biglietteria[1].index/(biglietteria[0].index + biglietteria[1].index));
-  visualizeStatistics(&biglietteria[1]);
-  visualizeStatisticsMultiservers(&controlloBiglietti, controlloBiglietti_MS);
-  visualizeStatistics(&cassaFoodArea);
-  visualizeStatisticsMultiservers(&foodArea, areaFood_MS);
-  #ifdef DEBUG
-    printf("*** FINAL *** gadgetsArea.node = %f | ",gadgetsArea.node);
-    printf("*** FINAL *** gadgetsArea.index = %f\n",gadgetsArea.index);
-  #endif
-  visualizeStatisticsMultiservers(&gadgetsArea, areaGadgets_MS);
   
-  double max(double a, double b){
-    if (a>b){
-      return a;
-    }
-    return b;
-  }
-  return (0);
+  visualizeStatistics(&biglietteria[0]);
+  visualizeStatistics(&biglietteria[1]);
+  visualizeStatisticsMultiservers(&controlloBiglietti);
+  visualizeStatistics(&cassaFoodArea);
+  visualizeStatisticsMultiservers(&foodArea);
+  visualizeStatisticsMultiservers(&gadgetsArea);
+  
+  return 0;
 }
