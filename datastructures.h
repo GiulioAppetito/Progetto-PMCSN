@@ -46,3 +46,18 @@ typedef enum ticketMode{
   ONLINE,
   PHYSICAL
 } ticketMode;
+
+typedef struct outputStats{
+  double avgInterarrivalTime;
+  double avgArrivalRate;
+  double avgWait;
+  double avgDelay;
+  double avgServiceTime;
+  double avgNumNode;
+  double avgNumQueue;
+  double utilization;
+  char *name;
+  int jobs;
+}outputStats;
+
+

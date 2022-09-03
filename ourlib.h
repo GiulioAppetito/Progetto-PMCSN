@@ -88,12 +88,12 @@ double FindNextDeparture(event ms[], int n_servers){
 }
 
 
-void initCenterStats(center *center, int servers, char *name){
+void resetCenterStats(center *center, int servers, char *name){
+  printf("\nreset center stats %s\n", name);
   center->node=0.0;
   center->queue=0.0;
   center->service=0.0;
   center->index=0.0;
-  center->number = 0.0;
   center->servers = servers;
   center->name = name;
   center->firstArrival = INFINITY;
