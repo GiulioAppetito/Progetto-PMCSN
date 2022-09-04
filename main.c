@@ -10,10 +10,10 @@
 
 char *statsNames[NUM_STATS] = {"avgInterarrivalTime","avgArrivalRate","avgWait","avgDelay","avgServiceTime","avgNumNode","avgNumQueue","utilization"};
 
-void writeStatsOnCSV(double intervalMatrix[NUM_CENTERS*NUM_STATS][3], outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS]){
+void writeStatsOnCSV(double intervalMatrix[NUM_CENTERS*NUM_STATS][3], outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS], char *FILEPATH){
 	//---CREAZIONE DI UN FILE csv
     FILE * fp;
-    fp = fopen("C:/Users/Giulio/Desktop/PMCSN/PROGETTO/Progetto-PMCSN.git/trunk/outputStats.csv", "w");
+    fp = fopen("C:/Users/Giulio/Desktop/PMCSN/PROGETTO/Progetto-PMCSN.git/trunk/outputStatsFiniteHorizon.csv", "w");
      
     //---SCRITTURA DEL FILE
     for(int i=0; i<NUM_CENTERS*NUM_STATS; i++){
@@ -34,7 +34,7 @@ void finiteHorizonSimulation(int fasciaOraria){
         int i;
         for(i=0; i < NUM_REPLICATIONS; i++){
             printf("Replication %d\n", i);
-            simulation(fasciaOraria, matrix[i], NULL, 1);
+            simulation(fasciaOraria, matrix[i], NULL, 1, 0, 0);
         }
         printf("\n\n");
         /*
@@ -131,7 +131,7 @@ void finiteHorizonSimulation(int fasciaOraria){
                 }   
             }
             //salvataggio intervalli di confidenza su file csv
-            writeStatsOnCSV(intervalMatrix, matrix);
+            writeStatsOnCSV(intervalMatrix, matrix,FILENAME_OUTPUT_FINITEHORIZON);
 
             //azzera le statistiche
             for(int i=0; i<NUM_STATS; i++){
@@ -142,7 +142,28 @@ void finiteHorizonSimulation(int fasciaOraria){
         }
 }
 
-void infiniteHorizonSimulation(int fasciaOraria){
+void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
+    outputStats matrix[k][NUM_CENTERS];
+    double intervalMatrix[NUM_CENTERS*NUM_STATS][3];
+    simulation(fasciaOraria, NULL, matrix, 0, b, k);
+
+    long   n[NUM_STATS];                    /* counts data points */
+    double sum[NUM_STATS];
+    double mean[NUM_STATS];
+    double data[NUM_STATS];
+    double stdev[NUM_STATS];
+    double u[NUM_STATS], t[NUM_STATS], w[NUM_STATS];
+    double diff[NUM_STATS];
+
+    int center;
+    int batch;
+    int stat;
+
+    for(int i=0; i<NUM_STATS; i++){
+        n[i] = 0;
+        sum[i] = 0.0;
+        mean[i] = 0.0;
+    }
     system("cls");
     printf("\033[22;32m _______________________________ \n\033[0m");
     printf("\033[22;32m|                             | |\n\033[0m");
@@ -154,18 +175,63 @@ void infiniteHorizonSimulation(int fasciaOraria){
     printf("\033[22;32m|_____________________________| |\n\033[0m");
     printf("\033[22;32m|_______________________________|\n\n\033[0m");
 
-    outputStats matrix[NUM_BATCHES][NUM_CENTERS];
-    simulation(fasciaOraria, NULL, matrix, 0);
+    //simulation parameters
+    printf("\033[22;32mSTATISTICHE STAZIONARIO (Infinite Horizon Simulation)\n\033[0m");
+    printf("\033[22;32mFascia oraria ..... : \033[0m");
+    printf("%d\n",fasciaOraria);
+    printf("\033[22;32mBatch size (b) .... : \033[0m");
+    printf("%d\n",b);
+    printf("\033[22;32mBatch number (k) .. : \033[0m");
+    printf("%d\n\n",k);
 
-    printf("tornato nel main\n");
 
-    printf("Simulazione finita.\n");
-    for(int i=0; i<NUM_BATCHES; i++){
-        for(int j=0; j<NUM_CENTERS; j++){
-            printf("%s ",matrix[i][j].name);
+    for(center = 0; center < NUM_CENTERS; center++){
+        printGreen(matrix[0][center].name);
+        for(batch = 0; batch < k; batch++){
+            data[0] = matrix[batch][center].avgInterarrivalTime;          
+            data[1] = matrix[batch][center].avgArrivalRate;           
+            data[2] = matrix[batch][center].avgWait;        
+            data[3] = matrix[batch][center].avgDelay; 
+            data[4] = matrix[batch][center].avgServiceTime; 
+            data[5] = matrix[batch][center].avgNumNode; 
+            data[6] = matrix[batch][center].avgNumQueue; 
+            data[7] = matrix[batch][center].utilization; 
+
+            for(stat = 0; stat < NUM_STATS; stat++){
+                n[stat]++;
+                diff[stat]  = data[stat] - mean[stat];
+                sum[stat]  += diff[stat] * diff[stat] * (n[stat] - 1.0) / n[stat];
+                mean[stat] += diff[stat] / n[stat];
+            }
         }
-        printf("\n");
+        printf("Statistics based upon %ld data points.\nWith %d%% confidence,the expected values are in the intervals:\n",n[stat],(int) (100.0 * LOC + 0.5));
+        printf("______________________________________________________________\n");
+        for(int stat=0; stat<NUM_STATS; stat++){
+                stdev[stat]  = sqrt(sum[stat] / n[stat]);
+                if (n[stat] > 1) {
+                    u[stat] = 1.0 - 0.5 * (1.0 - LOC);                                /* interval parameter  */
+                    t[stat] = idfStudent(n[stat] - 1, u[stat]);                       /* critical value of t */
+                    w[stat] = t[stat] * stdev[stat] / sqrt(n[stat] - 1);              /* interval half width */
+                    printf("| %s | %10.3f +/- %6.3f |\n", statsNames[stat],mean[stat], w[stat]);
+                    //salvo valori intervallo nella matrice usando un offset per ogni centro
+                    intervalMatrix[center*NUM_STATS + stat][0] = center;
+                    intervalMatrix[center*NUM_STATS + stat][1] = mean[stat];
+                    intervalMatrix[center*NUM_STATS + stat][2] = w[stat];
+                }   
+            }
+        
+        //salvataggio intervalli di confidenza su file csv
+        writeStatsOnCSV(intervalMatrix, matrix, FILENAME_OUTPUT_INFINITEHORIZON);
+
+        //azzera le statistiche
+        for(int i=0; i<NUM_STATS; i++){
+            n[i] = 0;
+            sum[i] = 0.0;
+            mean[i] = 0.0;
+        }
     }
+
+
 }
 
 void printGreen(char *string){
@@ -197,7 +263,9 @@ int main(void){
     if(simulazione == 1){
         finiteHorizonSimulation(fasciaOraria);
     }else if(simulazione == 2){
-        infiniteHorizonSimulation(fasciaOraria);
+        int b = BATCH_SIZE;
+        int k = NUM_BATCHES;
+        infiniteHorizonSimulation(fasciaOraria,b,k);
     }else{
         printRed("Invalid choice.\n");
         goto simSelection;

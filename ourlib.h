@@ -89,7 +89,6 @@ double FindNextDeparture(event ms[], int n_servers){
 
 
 void resetCenterStats(center *center, int servers, char *name){
-  printf("\nreset center stats %s\n", name);
   center->node=0.0;
   center->queue=0.0;
   center->service=0.0;

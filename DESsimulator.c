@@ -11,7 +11,7 @@
 #include "datastructures.h"
 #include "ourlib.h"
 #include "DESsimulator.h"
-#include "parameters.c"
+#include "parameters.h"
 
 //#define DEBUG 
 //#define DEBUG2
@@ -292,48 +292,30 @@ outputStats updateStatisticsSS(center *center){
 }
 
 int batches[NUM_CENTERS]; 
+int b;
 
 void saveBatchStatsSS(int centerIndex, center *center, outputStats matrix[NUM_BATCHES][NUM_CENTERS]){
   //printf("addr center: %p\n", center);
   outputStats output = updateStatisticsSS(center);
-  batches[centerIndex] += 1;
-  printf("%s batches post increment: %d\n", center->name, batches[centerIndex]);
   batchesCounter++;
-
-  printf("[ ");
-  for(int j= 0; j<NUM_CENTERS; j++){
-    printf(" %d |", batches[j]);
-  }
-  printf(" ]\n");
-
-  printf("in save stats MS %s, batchesCounter = %f\n", center->name, batchesCounter);
   matrix[batches[centerIndex]][centerIndex] = output; /* save statistics in the matrix cell */
+  batches[centerIndex] += 1;
 }
 void saveBatchStatsMS(int centerIndex, center *center, outputStats matrix[NUM_BATCHES][NUM_CENTERS]){
   outputStats output;
   output =  updateStatisticsMS(center);
-  batches[centerIndex] =  batches[centerIndex] + 1;
-  printf("%s batches post increment: %d\n", center->name, batches[centerIndex]);
   batchesCounter++;
-
-    printf("[ ");
-  for(int j= 0; j<NUM_CENTERS; j++){
-    printf(" %d |", batches[j]);
-  }
-  printf(" ]\n");
-
-  
-  printf("in save stats MS %s, batchesCounter = %f\n", center->name, batchesCounter);
   matrix[batches[centerIndex]][centerIndex] = output; /* save statistics in the matrix cell */
+  batches[centerIndex] =  batches[centerIndex] + 1;
 }
 
 
 
-int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATCHES][NUM_CENTERS], int finite){
+int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATCHES][NUM_CENTERS], int finite, int b, int k){
   
   if(finite == 0){
     STOP = STOP_INFINITE;             /* infinite horizon */
-    n = (NUM_BATCHES * NUM_CENTERS);  /* tot batches */
+    n = k * NUM_CENTERS;
     printf("n: %f\n", n);
   }else{
     STOP = STOP_FINITE;               /* finite horizon */
@@ -451,7 +433,7 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
   initEvents(event, NUMBER_OF_EVENTS);
 
   //creazione delle outputStats per ogni centro
-  //outputStats biglietteria0Output;
+  outputStats biglietteria0Output;
   outputStats biglietteria1Output;
   outputStats controlloBigliettiOutput;
   outputStats cassaFoodAreaOutput;
@@ -474,14 +456,19 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
 
   double totalNumber = (biglietteria[0].number + biglietteria[1].number + controlloBiglietti.number + cassaFoodArea.number + foodArea.number + gadgetsArea.number);
   printGreen("BATCH SIZE : ");
-  printf("%d\n",BATCH_SIZE);
+  printf("%d\n",b);
   while (
           ((finite) && ((event[0].t < STOP) || (totalNumber > 0))) ||
-          ((!finite) && ( batchesCounter < n))
-        ){
+          ((!finite) && ( batchesCounter < n))){
     
-    printf("BATCHESCOUNTER: %f\n", batchesCounter);
-    printf("CIINEMA INDEX: %f\n", cinema.index);
+    if(!finite){
+      printf("[ ");
+      for(int j= 0; j<NUM_CENTERS; j++){
+        printf(" %d |", batches[j]);
+      }
+      printf(" ]\n");
+    }
+
     e = NextEvent(event);                        /* next event index  */
     t.next = event[e].t;                         /* next event time   */
     for(int j=0; j<2; j++){
@@ -492,6 +479,8 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
     updateIntegrals(&foodArea, areaFood_MS);
     updateIntegrals(&gadgetsArea, areaGadgets_MS);
     updateIntegrals(&cinema, NULL);
+
+      
     /*
     printf("Biglietteria[1].index = %.2f\n",biglietteria[1].index);
     printf("Biglietteria[1] finished = %d\n\n",finished[INDEX_BIGLIETTERIA1]);        
@@ -701,7 +690,6 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
           case NONE:
             none++;
             cinema.number--;
-            cinema.index++;
             break;
           default:
             printf("default\n");
@@ -836,7 +824,6 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
               printf("time after none: %f\n", tempo);
             #endif
             cinema.number--;
-            cinema.index++;
             break;
           default:
             #ifdef DEBUG
@@ -881,6 +868,7 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
         gadgetsArea.index++;
         gadgetsArea.number--;
         gadgetsArea.lastService = t.current;
+        cinema.number--;
 
         int e_cb_11 = 0;
         tempo = event[11].t;
@@ -917,10 +905,7 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
           }
         }
         event[11].t = FindNextDeparture(departuresGadgetsArea, SERVERS_GADGETS_AREA);
-
-        cinema.number--;
-        cinema.index++;
-        
+      
         break;
 
       default:
@@ -930,53 +915,46 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
     
     /* infinite simulation */
     if(!finite){
-      if((biglietteria[0].index == BATCH_SIZE) && (batches[INDEX_BIGLIETTERIA0] < NUM_BATCHES)){   /* save statistics for batch */
-        printf("\nnum of batches for b0: %d\n", batches[0]);
+      if((biglietteria[0].index == b) && (batches[INDEX_BIGLIETTERIA0] < k)){   /* save statistics for batch */
         saveBatchStatsSS(INDEX_BIGLIETTERIA0, &biglietteria[0], matrix);
         resetCenterStats(&biglietteria[0], SERVERS_BIGLIETTERIA, "biglietteria_0");      /* reset center statistics */
       }
-      if((biglietteria[1].index == BATCH_SIZE) && (batches[INDEX_BIGLIETTERIA1] < NUM_BATCHES)){   /* save statistics for batch */
-        printf("\nnum of batches for b1: %d\n", batches[1]);
+      if((biglietteria[1].index == b) && (batches[INDEX_BIGLIETTERIA1] < k)){   /* save statistics for batch */
         saveBatchStatsSS(INDEX_BIGLIETTERIA1, &biglietteria[1], matrix);
         resetCenterStats(&biglietteria[1], SERVERS_BIGLIETTERIA, "biglietteria_1");      /* reset center statistics */
       }
-      if((controlloBiglietti.index == BATCH_SIZE) && (batches[INDEX_CONTROLLOBIGLIETTI] < NUM_BATCHES)){   /* save statistics for batch */
-        printf("\nnum of batches for cb: %d\n", batches[2]);       
-        saveBatchStatsMS(INDEX_CONTROLLOBIGLIETTI, &controlloBiglietti, matrix);
+      if((controlloBiglietti.index == b) && (batches[INDEX_CONTROLLOBIGLIETTI] < k)){   /* save statistics for batch */
+        saveBatchStatsSS(INDEX_CONTROLLOBIGLIETTI, &controlloBiglietti, matrix);
         resetCenterStats(&controlloBiglietti, SERVERS_CONTROLLO_BIGLIETTI, "controlloBiglietti");      /* reset center statistics */
       }
-      if((cassaFoodArea.index == BATCH_SIZE) && (batches[INDEX_CASSAFOODAREA] < NUM_BATCHES)){   /* save statistics for batch */
-        printf("\nnum of batches for cfa: %d\n", batches[INDEX_CASSAFOODAREA]);
+      if((cassaFoodArea.index == b) && (batches[INDEX_CASSAFOODAREA] < k)){   /* save statistics for batch */
         saveBatchStatsSS(INDEX_CASSAFOODAREA, &cassaFoodArea, matrix);
         resetCenterStats(&cassaFoodArea, SERVERS_CASSA_FOOD_AREA, "cassaFoodArea");      /* reset center statistics */
       }
-      if((foodArea.index == BATCH_SIZE) && (batches[INDEX_FOODAREA] < NUM_BATCHES)){   /* save statistics for batch */
-        printf("\nnum of batches for fa: %d\n", batches[4]);
-        saveBatchStatsMS(INDEX_FOODAREA, &foodArea, matrix);
+      if((foodArea.index == b) && (batches[INDEX_FOODAREA] < k)){   /* save statistics for batch */
+        saveBatchStatsSS(INDEX_FOODAREA, &foodArea, matrix);
         resetCenterStats(&foodArea, SERVERS_FOOD_AREA, "foodArea");      /* reset center statistics */
       }
-      if((gadgetsArea.index == BATCH_SIZE) && (batches[INDEX_GADGETSAREA] < NUM_BATCHES)){   /* save statistics for batch */
-        printf("\nnum of batches for ga: %d\n", batches[5]);
-        saveBatchStatsMS(INDEX_GADGETSAREA, &gadgetsArea, matrix);
+      if((gadgetsArea.index == b) && (batches[INDEX_GADGETSAREA] < k)){   /* save statistics for batch */
+        saveBatchStatsSS(INDEX_GADGETSAREA, &gadgetsArea, matrix);
         resetCenterStats(&gadgetsArea, SERVERS_GADGETS_AREA, "gadgetsArea");      /* reset center statistics */
       }
     }
   }
 
-  printf("\nFinished : [");
+  printf("Finished : [");
   printf("]\n");
 
   if(finite){
     visualizeRunParameters(cinema.index, lambda, p_foodArea, p_gadgetsArea, p_gadgetsAfterFood);
     //salvataggio delle statistiche di ogni centro nelle struct outputStats
     outputStats biglietteria0Output = updateStatisticsSS(&biglietteria[0]);
-    /*
-    updateStatisticsSS(&biglietteria1Output,&biglietteria[1]);
-    updateStatisticsMS(&controlloBigliettiOutput,&controlloBiglietti);
-    updateStatisticsSS(&cassaFoodAreaOutput,&cassaFoodArea);
-    updateStatisticsMS(&foodAreaOutput,&foodArea);
-    updateStatisticsMS(&gadgetsAreaOutput,&gadgetsArea);
-    */
+    outputStats biglietteria1Output = updateStatisticsSS(&biglietteria[1]);
+    outputStats controlloBigliettiOutput = updateStatisticsMS(&controlloBiglietti);
+    outputStats cassaFoodAreaOutput = updateStatisticsSS(&cassaFoodArea);
+    outputStats foodAreaOutput = updateStatisticsMS(&foodArea);
+    outputStats gadgetsAreaOutput = updateStatisticsMS(&gadgetsArea);
+    
     //salvataggio delle outputStats nella riga della matrix relativa a questa run
     row[INDEX_BIGLIETTERIA0] = biglietteria0Output;
     row[INDEX_BIGLIETTERIA1] = biglietteria1Output;
@@ -993,10 +971,10 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
     visualizeStatisticsMultiservers(&foodAreaOutput,&foodArea);
     visualizeStatisticsMultiservers(&gadgetsAreaOutput,&gadgetsArea);
     */
-/*
     double calculateWait(center *center){
       return center->node / center->index;
     }
+
     double waitBiglietteria0 = calculateWait(&biglietteria[0]);
     double waitBiglietteria1 = calculateWait(&biglietteria[1]);
     double waitBiglietteria = (waitBiglietteria0 + waitBiglietteria1)/2;
@@ -1004,7 +982,7 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
     double waitCassaFoodArea = calculateWait(&cassaFoodArea);
     double waitFoodArea = calculateWait(&foodArea);
     double waitGadgetsArea = calculateWait(&gadgetsArea);
-  
+    
     double wait_online_none = waitControlloBiglietti;
     double wait_online_food = waitControlloBiglietti + waitCassaFoodArea + waitFoodArea;
     double wait_online_all = waitControlloBiglietti + waitCassaFoodArea + waitFoodArea + waitGadgetsArea;
@@ -1013,7 +991,7 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
     double wait_physical_food = waitBiglietteria + waitControlloBiglietti + waitCassaFoodArea + waitFoodArea;
     double wait_physical_all = waitBiglietteria + waitControlloBiglietti + waitCassaFoodArea + waitFoodArea + waitGadgetsArea;
     double wait_physical_gadgets = waitBiglietteria + waitControlloBiglietti + waitGadgetsArea; 
-*/
+
     /*
     printf("\nwait_online_none ....... = %6.3f",wait_online_none);
     printf("\nwait_online_food ....... = %6.3f",wait_online_food);
