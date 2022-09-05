@@ -23,7 +23,6 @@ double MU_FOOD_AREA          = 2.0;
 double MU_GADGETS_AREA       = 2.0;
 
 double lambda;
-center cinema;
 double STOP;
 double n;
 
@@ -384,6 +383,7 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
   center cassaFoodArea;
   center foodArea;
   center gadgetsArea;
+  center cinema;
 
   //inizializzazione dei centri
   resetCenterStats(&biglietteria[0], SERVERS_BIGLIETTERIA, "biglietteria_0");
@@ -479,7 +479,6 @@ int simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_BATC
     updateIntegrals(&foodArea, areaFood_MS);
     updateIntegrals(&gadgetsArea, areaGadgets_MS);
     updateIntegrals(&cinema, NULL);
-
       
     /*
     printf("Biglietteria[1].index = %.2f\n",biglietteria[1].index);
