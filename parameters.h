@@ -1,8 +1,8 @@
 #define SEED 123456789
 
 #define START         0.0                /* initial time                   */
-#define STOP_FINITE   60.0               /* terminal (close the door) time */
-#define STOP_INFINITE 200000.0           /* terminal (close the door) time */
+#define STOP_FINITE   20000.0               /* terminal (close the door) time */
+#define STOP_INFINITE 200000.0           
 #define INFINITY      (100.0 * STOP)     /* must be much larger than STOP  */
 
 /* ------------------------------
@@ -60,11 +60,12 @@
 #define INDEX_CASSAFOODAREA 3
 #define INDEX_FOODAREA 4
 #define INDEX_GADGETSAREA 5
+#define INDEX_CINEMA       6         
 
 /* ------------------------------
  * finite horizon simulation
  * ------------------------------*/
-#define NUM_REPLICATIONS 512            
+#define NUM_REPLICATIONS 64            
 #define NUM_CENTERS      6
 #define NUM_STATS        8
 #define SEED             123456789
@@ -75,10 +76,9 @@
  * infinite horizon simulation
  * ------------------------------*/
 #define BATCH_SIZE   256 /* b */
-#define NUM_BATCHES  64  /* k */
+#define NUM_BATCHES  8  /* k */
 
-/* ------------------------------
- * output file names
- * ------------------------------*/
-#define FILENAME_OUTPUT_FINITEHORIZON   "C:/Users/Giulio/Desktop/PMCSN/PROGETTO/Progetto-PMCSN.git/trunk/outputStatsFiniteHorizon.csv"
-#define FILENAME_OUTPUT_INFINITEHORIZON "C:/Users/Giulio/Desktop/PMCSN/PROGETTO/Progetto-PMCSN.git/trunk/outputStatsInfiniteHorizon.csv"
+double p_foodArea;
+double p_gadgetsArea;
+double p_gadgetsAfterFood;
+double p_online;

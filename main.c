@@ -8,12 +8,12 @@
 #include "rvgs.h"
 #include "parameters.h"
 
-char *statsNames[NUM_STATS] = {"avgInterarrivalTime","avgArrivalRate","avgWait","avgDelay","avgServiceTime","avgNumNode","avgNumQueue","utilization"};
+char *statsNames[NUM_STATS] = {"avgInterarrivalTime","avgArrivalRate","avgWait","avgDelay","avgServiceTime","avgNumNode","avgNumQueue","utilization","systemResponseTime"};
 
-void writeStatsOnCSV(double intervalMatrix[NUM_CENTERS*NUM_STATS][3], outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS], char *FILEPATH){
+void writeStatsOnCSV(double intervalMatrix[(NUM_CENTERS+1)*(NUM_STATS)][3], outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS], char *FILEPATH){
 	//---CREAZIONE DI UN FILE csv
     FILE * fp;
-    fp = fopen("C:/Users/Giulio/Desktop/PMCSN/PROGETTO/Progetto-PMCSN.git/trunk/outputStatsFiniteHorizon.csv", "w");
+    fp = fopen(FILEPATH, "w");
      
     //---SCRITTURA DEL FILE
     for(int i=0; i<NUM_CENTERS*NUM_STATS; i++){
@@ -28,15 +28,46 @@ void writeStatsOnCSV(double intervalMatrix[NUM_CENTERS*NUM_STATS][3], outputStat
 
 }
 
+void confidenceInterval(double responseTime[]){
+    long   n    = 0;                     /* counts data points */
+    double sum  = 0.0;
+    double mean = 0.0;
+    double data;
+    double stdev;
+    double u, t, w;
+    double diff;
+
+    for(int i=0; i < NUM_REPLICATIONS; i++) {                      
+        n++;     
+        data = responseTime[i];                          
+        diff  = data - mean;
+        sum  += diff * diff * (n - 1.0) / n;
+        mean += diff / n;
+    }
+    stdev  = sqrt(sum / n);
+
+    if (n > 1) {
+        u = 1.0 - 0.5 * (1.0 - LOC);              /* interval parameter  */
+        t = idfStudent(n - 1, u);                 /* critical value of t */
+        w = t * stdev / sqrt(n - 1);              /* interval half width */
+        printf("\nSYSTEM RESPONSE TIME : based upon %ld data points", n);
+        printf(" and with %d%% confidence\n", (int) (100.0 * LOC + 0.5));
+        printf("the expected value is in the interval\n");
+        printf("%.3f +/- %.3f\n", mean, w);
+    }
+}
+
 void finiteHorizonSimulation(int fasciaOraria){
         outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS];
+        double avgCinemaResponseTime[NUM_REPLICATIONS];
         double intervalMatrix[NUM_CENTERS*NUM_STATS][3];
         int i;
         for(i=0; i < NUM_REPLICATIONS; i++){
             printf("Replication %d\n", i);
-            simulation(fasciaOraria, matrix[i], NULL, 1, 0, 0);
+            avgCinemaResponseTime[i] = simulation(fasciaOraria, matrix[i], NULL, 1, 0, 0);
         }
         printf("\n\n");
+        confidenceInterval(avgCinemaResponseTime);
         /*
         for(int j=0; j < NUM_CENTERS; j++){
             if(j==NUM_CENTERS-1){
@@ -66,7 +97,7 @@ void finiteHorizonSimulation(int fasciaOraria){
 
         int center;
         int replication;
-        system("cls");
+        //system("cls");
         printf("\033[22;32m _______________________________ \n\033[0m");
         printf("\033[22;32m|                             | |\n\033[0m");
         printf("\033[22;32m|    GESTIONE DI UN CINEMA    | |\n\033[0m");
@@ -131,7 +162,7 @@ void finiteHorizonSimulation(int fasciaOraria){
                 }   
             }
             //salvataggio intervalli di confidenza su file csv
-            writeStatsOnCSV(intervalMatrix, matrix,FILENAME_OUTPUT_FINITEHORIZON);
+            writeStatsOnCSV(intervalMatrix, matrix,"C:/Users/Giulio/Desktop/PMCSN/PROGETTO/Progetto-PMCSN.git/trunk/outputStatsFiniteHorizon.csv");
 
             //azzera le statistiche
             for(int i=0; i<NUM_STATS; i++){
@@ -143,9 +174,17 @@ void finiteHorizonSimulation(int fasciaOraria){
 }
 
 void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
-    outputStats matrix[k][NUM_CENTERS];
-    double intervalMatrix[NUM_CENTERS*NUM_STATS][3];
-    simulation(fasciaOraria, NULL, matrix, 0, b, k);
+    outputStats matrix[k][NUM_CENTERS];                         //matrice per cui riga[i]==batch[i], colonna[j]==centro[j]
+    double intervalMatrix[(NUM_CENTERS)*(NUM_STATS)][3];        
+    double x =simulation(fasciaOraria, NULL, matrix, 0, b, k);
+
+    for(int i=0; i<k; i++){
+        for(int j=0; j<NUM_CENTERS; j++){
+            printf("%6.3f ",matrix[i][j].avgNumNode);
+        }
+        printf("\n");
+    }
+
 
     long   n[NUM_STATS];                    /* counts data points */
     double sum[NUM_STATS];
@@ -164,16 +203,7 @@ void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
         sum[i] = 0.0;
         mean[i] = 0.0;
     }
-    system("cls");
-    printf("\033[22;32m _______________________________ \n\033[0m");
-    printf("\033[22;32m|                             | |\n\033[0m");
-    printf("\033[22;32m|    GESTIONE DI UN CINEMA    | |\n\033[0m");
-    printf("\033[22;32m|        Progetto PMCSN       | |\n\033[0m");
-    printf("\033[22;32m|                             | |\n\033[0m");
-    printf("\033[22;32m|      Brinati Anastasia      | |\n\033[0m");
-    printf("\033[22;32m|       Appetito Giulio       | |\n\033[0m");
-    printf("\033[22;32m|_____________________________| |\n\033[0m");
-    printf("\033[22;32m|_______________________________|\n\n\033[0m");
+    
 
     //simulation parameters
     printf("\033[22;32mSTATISTICHE STAZIONARIO (Infinite Horizon Simulation)\n\033[0m");
@@ -196,32 +226,53 @@ void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
             data[5] = matrix[batch][center].avgNumNode; 
             data[6] = matrix[batch][center].avgNumQueue; 
             data[7] = matrix[batch][center].utilization; 
-
             for(stat = 0; stat < NUM_STATS; stat++){
                 n[stat]++;
                 diff[stat]  = data[stat] - mean[stat];
                 sum[stat]  += diff[stat] * diff[stat] * (n[stat] - 1.0) / n[stat];
                 mean[stat] += diff[stat] / n[stat];
+
             }
         }
-        printf("Statistics based upon %ld data points.\nWith %d%% confidence,the expected values are in the intervals:\n",n[stat],(int) (100.0 * LOC + 0.5));
-        printf("______________________________________________________________\n");
+        printf("Statistics based upon %ld data points.\nWith %d%% confidence,the expected values are in the intervals:\n\n",n[0],(int) (100.0 * LOC + 0.5));
         for(int stat=0; stat<NUM_STATS; stat++){
                 stdev[stat]  = sqrt(sum[stat] / n[stat]);
                 if (n[stat] > 1) {
                     u[stat] = 1.0 - 0.5 * (1.0 - LOC);                                /* interval parameter  */
                     t[stat] = idfStudent(n[stat] - 1, u[stat]);                       /* critical value of t */
                     w[stat] = t[stat] * stdev[stat] / sqrt(n[stat] - 1);              /* interval half width */
-                    printf("| %s | %10.3f +/- %6.3f |\n", statsNames[stat],mean[stat], w[stat]);
+                    printf("%s\n", statsNames[stat]);
+                    printf("%.3f +/- %.3f\n\n", mean[stat], w[stat]);
+
                     //salvo valori intervallo nella matrice usando un offset per ogni centro
                     intervalMatrix[center*NUM_STATS + stat][0] = center;
                     intervalMatrix[center*NUM_STATS + stat][1] = mean[stat];
                     intervalMatrix[center*NUM_STATS + stat][2] = w[stat];
+                    
+                    /*
+                    printf("|  average interarrival time = %6.3f   |   %6.3f     |\n", obsTime / (center->index), theorical_interarrival);
+                    printf("|  average arrival rate .... = %6.3f   |   %6.3f     |\n", center->index / obsTime, theorical_lambda);
+                    //printf("   [con t.current] average arrival rate .... = %6.3f\n", center->index  / t.current);
+
+                    // mean wait: E(w) = sum(wi)/n
+                    printf("|  average wait ............ = %6.3f   |   %6.3f     |\n", center->node / center->index, theorical_Tq + theorical_meanServiceTime);
+                    // mean delay: E(d) = sum(di)/n
+                    printf("|  average delay ........... = %6.3f   |   %6.3f     |\n", center->queue / center->index, theorical_Tq);
+
+                    /* consistency check: E(Ts) = E(Tq) + E(s) 
+
+                    // mean service time : E(s) = sum(si)/n
+                    printf("|  average service time .... = %6.3f   |   %6.3f     |\n", center->service / center->index, theorical_meanServiceTime);
+                    printf("|  average # in the node ... = %6.3f   |   %6.3f     |\n", center->node / obsTime2, theorical_N);
+                    printf("|  average # in the queue .. = %6.3f   |   %6.3f     |\n", center->queue / obsTime2, theorical_lambda * theorical_Tq);
+                    printf("|  utilization ............. = %6.3f   |   %6.3f     |\n", center->service / obsTime2, theorical_ro);       
+                    */
+
                 }   
             }
         
         //salvataggio intervalli di confidenza su file csv
-        writeStatsOnCSV(intervalMatrix, matrix, FILENAME_OUTPUT_INFINITEHORIZON);
+        writeStatsOnCSV(intervalMatrix, matrix, "C:/Users/Giulio/Desktop/PMCSN/PROGETTO/Progetto-PMCSN.git/trunk/outputStatsInfiniteHorizon.csv");
 
         //azzera le statistiche
         for(int i=0; i<NUM_STATS; i++){
@@ -230,8 +281,7 @@ void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
             mean[i] = 0.0;
         }
     }
-
-
+    
 }
 
 void printGreen(char *string){
@@ -278,5 +328,4 @@ int main(void){
     return 0;
     
 }
-
 

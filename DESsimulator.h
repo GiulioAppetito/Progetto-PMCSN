@@ -3,6 +3,6 @@
 
 #include <stdio.h>
 
-int simulation();
+double simulation();
 
 #endif

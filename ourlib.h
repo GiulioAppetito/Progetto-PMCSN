@@ -1,4 +1,7 @@
 /* corredal functions */
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 
 double Min(double a, double c)
 /* ------------------------------
@@ -95,7 +98,7 @@ void resetCenterStats(center *center, int servers, char *name){
   center->index=0.0;
   center->servers = servers;
   center->name = name;
-  center->firstArrival = INFINITY;
+  center->firstArrival = center->lastArrival;
   center->lastArrival = 0.0;
   center->lastService = 0.0;
 
