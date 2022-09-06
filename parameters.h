@@ -1,9 +1,9 @@
 #define SEED 123456789
 
 #define START         0.0                /* initial time                   */
-#define STOP_FINITE   20000.0               /* terminal (close the door) time */
-#define STOP_INFINITE 200000.0           
-#define INFINITY      (100.0 * STOP)     /* must be much larger than STOP  */
+#define STOP_FINITE   60.0               /* terminal (close the door) time */
+#define STOP_INFINITE 5000000.0           
+#define INFINITY      (100.0 * STOP_FINITE)     /* must be much larger than STOP  */
 
 /* ------------------------------
  * stream index for each one
@@ -75,8 +75,8 @@
 /* ------------------------------
  * infinite horizon simulation
  * ------------------------------*/
-#define BATCH_SIZE   256 /* b */
-#define NUM_BATCHES  8  /* k */
+#define BATCH_SIZE   1024 /* b */
+#define NUM_BATCHES  64  /* k */
 
 double p_foodArea;
 double p_gadgetsArea;

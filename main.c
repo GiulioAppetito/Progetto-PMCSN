@@ -28,33 +28,36 @@ void writeStatsOnCSV(double intervalMatrix[(NUM_CENTERS+1)*(NUM_STATS)][3], outp
 
 }
 
-void confidenceInterval(double responseTime[]){
-    long   n    = 0;                     /* counts data points */
-    double sum  = 0.0;
-    double mean = 0.0;
-    double data;
-    double stdev;
-    double u, t, w;
-    double diff;
+void estimate(double array[], int lenght){
+  long   n    = 0;                     /* counts data points */
+  double sum  = 0.0;
+  double mean = 0.0;
+  double data;
+  double stdev;
+  double u, t, w;
+  double diff;
 
-    for(int i=0; i < NUM_REPLICATIONS; i++) {                      
-        n++;     
-        data = responseTime[i];                          
-        diff  = data - mean;
-        sum  += diff * diff * (n - 1.0) / n;
-        mean += diff / n;
-    }
-    stdev  = sqrt(sum / n);
+  for(int i=0; i<lenght; i++) {                 /* use Welford's one-pass method */
+    data = array[i];               /* to calculate the sample mean  */
+    n++;                                 /* and standard deviation        */
+    diff  = data - mean;
+    sum  += diff * diff * (n - 1.0) / n;
+    mean += diff / n;
+  }
+  stdev  = sqrt(sum / n);
 
-    if (n > 1) {
-        u = 1.0 - 0.5 * (1.0 - LOC);              /* interval parameter  */
-        t = idfStudent(n - 1, u);                 /* critical value of t */
-        w = t * stdev / sqrt(n - 1);              /* interval half width */
-        printf("\nSYSTEM RESPONSE TIME : based upon %ld data points", n);
-        printf(" and with %d%% confidence\n", (int) (100.0 * LOC + 0.5));
-        printf("the expected value is in the interval\n");
-        printf("%.3f +/- %.3f\n", mean, w);
-    }
+  if (n > 1) {
+    u = 1.0 - 0.5 * (1.0 - LOC);              /* interval parameter  */
+    t = idfStudent(n - 1, u);                 /* critical value of t */
+    w = t * stdev / sqrt(n - 1);              /* interval half width */
+    printf("\nCinema response time based upon %ld data points", n);
+    printf(" and with %d%% confidence\n", (int) (100.0 * LOC + 0.5));
+    printf("the expected value is in the interval ");
+    printf("%.3f +/- %.3f\n", mean, w);
+  }
+  else
+    printf("ERROR - insufficient data\n");
+  return (0);
 }
 
 void finiteHorizonSimulation(int fasciaOraria){
@@ -64,29 +67,11 @@ void finiteHorizonSimulation(int fasciaOraria){
         int i;
         for(i=0; i < NUM_REPLICATIONS; i++){
             printf("Replication %d\n", i);
-            avgCinemaResponseTime[i] = simulation(fasciaOraria, matrix[i], NULL, 1, 0, 0);
+            avgCinemaResponseTime[i] = simulation(fasciaOraria, matrix[i], NULL, NULL, 1, 0, 0);
         }
         printf("\n\n");
-        confidenceInterval(avgCinemaResponseTime);
-        /*
-        for(int j=0; j < NUM_CENTERS; j++){
-            if(j==NUM_CENTERS-1){
-                printf("     %s",matrix[0][j].name);
-            }else{
-                printf("%s         ",matrix[0][j].name);  
-            }
-        }
-        printf("\n\n");
-        for(int i = 1; i < NUM_REPLICATIONS; i++)
-        {
-            for(int k = 0; k < NUM_CENTERS ; k++)
-            {
-                printf("%6.3f             \t",matrix[k][i].avgDelay);
-            }
-            printf("\n");
-        }
-        printf("\n\n");
-        */
+        
+
         long   n[NUM_STATS];                    /* counts data points */
         double sum[NUM_STATS];
         double mean[NUM_STATS];
@@ -175,16 +160,9 @@ void finiteHorizonSimulation(int fasciaOraria){
 
 void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
     outputStats matrix[k][NUM_CENTERS];                         //matrice per cui riga[i]==batch[i], colonna[j]==centro[j]
+    double cinemaWait[k];
     double intervalMatrix[(NUM_CENTERS)*(NUM_STATS)][3];        
-    double x =simulation(fasciaOraria, NULL, matrix, 0, b, k);
-
-    for(int i=0; i<k; i++){
-        for(int j=0; j<NUM_CENTERS; j++){
-            printf("%6.3f ",matrix[i][j].avgNumNode);
-        }
-        printf("\n");
-    }
-
+    double x =simulation(fasciaOraria, NULL, matrix, cinemaWait, 0, b, k);
 
     long   n[NUM_STATS];                    /* counts data points */
     double sum[NUM_STATS];
@@ -282,6 +260,15 @@ void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
         }
     }
     
+    //cinema response time
+    for(int batch=0; batch<k; batch++){
+        cinemaWait[batch] = (1-p_online)*(0.5*matrix[batch][INDEX_BIGLIETTERIA0].avgWait + 0.5*matrix[batch][INDEX_BIGLIETTERIA1].avgWait)+
+                            matrix[batch][INDEX_CONTROLLOBIGLIETTI].avgWait+
+                            p_foodArea*(matrix[batch][INDEX_CASSAFOODAREA].avgWait + matrix[batch][INDEX_FOODAREA].avgWait)+
+                            p_gadgetsArea*(matrix[batch][INDEX_GADGETSAREA].avgWait)+ p_gadgetsAfterFood*p_foodArea*matrix[batch][INDEX_GADGETSAREA].avgWait;
+    }
+    estimate(cinemaWait, k);
+    printf("\n");
 }
 
 void printGreen(char *string){
