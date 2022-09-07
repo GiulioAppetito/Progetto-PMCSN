@@ -145,12 +145,17 @@ void updateIntegrals(center *center, multiserver multiserver[]){
   }
 }
 
-double visualizeStatistics(outputStats *output,center *center){
-    printf("\nSTATISTICHE\033[22;32m %s\033[0m per %.0f jobs [Fascia oraria %d] :\n", center->name, center->index, fasciaOraria);
-    double obsTime = center->lastArrival;
-    double obsTime2 = center->lastService - center->firstArrival;
-
-    double theorical_lambda;
+double theoricalLambda(center *center){
+   double theorical_lambda;
+    if(strcmp(center->name, "controlloBiglietti")==0){
+      theorical_lambda = lambda;
+    } 
+    if(strcmp(center->name, "foodArea")==0){
+      theorical_lambda = lambda*p_foodArea;
+    }
+    if(strcmp(center->name, "gadgetsArea")==0){
+      theorical_lambda = lambda*p_gadgetsArea + lambda*p_foodArea*p_gadgetsAfterFood;
+    }
     if(strcmp(center->name, "biglietteria_0")==0){
       theorical_lambda = lambda*(1-p_online)*0.5;
     }
@@ -159,23 +164,47 @@ double visualizeStatistics(outputStats *output,center *center){
     }
     if(strcmp(center->name, "cassaFoodArea")==0){
       theorical_lambda = lambda*p_foodArea;
-    }
-   
+    } 
+    return theorical_lambda;
+}
+
+double theoricalDelaySS(center *center){
+
+  double theorical_lambda = theoricalLambda(center);
+  
+  double theorical_service = 1 / center->serviceParams->mean;
+  /* ro = lambda * E(s) */
+  double ro = theorical_lambda*theorical_service;
+  // E(Tq) = Pq*E(s) / (1-ro)
+  double theorical_delay = (ro*theorical_service)/(1-ro);;
+
+  return theorical_delay;
+
+}
+
+double theoricalWaitSS(center *center){
+  
+  double theorical_Tq = theoricalDelaySS(center);
+  double theorical_wait = theorical_Tq + 1/center->serviceParams->mean;
+  return theorical_wait;
+
+}
+
+
+
+double visualizeStatistics(outputStats *output,center *center){
+    printf("\nSTATISTICHE\033[22;32m %s\033[0m per %.0f jobs [Fascia oraria %d] :\n", center->name, center->index, fasciaOraria);
+    double obsTime = center->lastArrival;
+    double obsTime2 = center->lastService - center->firstArrival;
+
+    double theorical_lambda = theoricalLambda(center);
     double theorical_interarrival = 1/theorical_lambda;
-    double theorical_mu = center->serviceParams->mean;
-    double theorical_meanServiceTime = 1/theorical_mu;
-    double theorical_ro = theorical_lambda / theorical_mu;
-    double theorical_Tq = (theorical_ro*theorical_meanServiceTime)/(1-theorical_ro);
-    double theorical_N = (theorical_meanServiceTime + theorical_Tq)*theorical_lambda;
+
+    double theorical_meanServiceTime = 1/center->serviceParams->mean;
+    double theorical_ro = theorical_lambda * theorical_meanServiceTime;
+    double theorical_Tq = theoricalDelaySS(center);
+    double theorical_Ts = theoricalWaitSS(center);
     
-    if(strcmp(center->name, "biglietteria_0")==0){
-      TsBiglietteria0 = theorical_Tq + theorical_meanServiceTime;
-    } 
-    if(strcmp(center->name, "biglietteria_1")==0){
-      TsBiglietteria1 = theorical_Tq + theorical_meanServiceTime;    } 
-    if(strcmp(center->name, "cassaFoodArea")==0){
-      TsCassaFoodArea = theorical_Tq + theorical_meanServiceTime;
-    } 
 
     // mean interrarrivaltime: an/n
     printf("VALORI TEORICI %s\n\n",center->name);
@@ -188,7 +217,7 @@ double visualizeStatistics(outputStats *output,center *center){
     //printf("   [con t.current] average arrival rate .... = %6.3f\n", center->index  / t.current);
 
     // mean wait: E(w) = sum(wi)/n
-    printf("|  average wait ............ = %6.3f   |   %6.3f     |\n", center->node / center->index, theorical_Tq + theorical_meanServiceTime);
+    printf("|  average wait ............ = %6.3f   |   %6.3f     |\n", center->node / center->index, theorical_Ts);
     // mean delay: E(d) = sum(di)/n
     printf("|  average delay ........... = %6.3f   |   %6.3f     |\n", center->queue / center->index, theorical_Tq);
 
@@ -196,56 +225,60 @@ double visualizeStatistics(outputStats *output,center *center){
 
     // mean service time : E(s) = sum(si)/n
     printf("|  average service time .... = %6.3f   |   %6.3f     |\n", center->service / center->index, theorical_meanServiceTime);
-    printf("|  average # in the node ... = %6.3f   |   %6.3f     |\n", center->node / obsTime2, theorical_N);
+    printf("|  average # in the node ... = %6.3f   |   %6.3f     |\n", center->node / obsTime2, (theorical_meanServiceTime + theorical_Tq)*theorical_lambda);
     printf("|  average # in the queue .. = %6.3f   |   %6.3f     |\n", center->queue / obsTime2, theorical_lambda * theorical_Tq);
     printf("|  utilization ............. = %6.3f   |   %6.3f     |\n", center->service / obsTime2, theorical_ro);
     printf("|_______________________________________|______________|\n");
     return theorical_ro;
 }
 
+double theoricalDelayMS(center *center){
+
+  double theorical_lambda = theoricalLambda(center);
+  
+  double mu = center->serviceParams->mean;
+  int m = center->servers;
+  /* E(s) = 1 / mu * m */
+  double theorical_service = 1 / (mu*m);
+  /* ro = lambda * E(s) */
+  double ro = theorical_lambda*theorical_service;
+  double p_zero = 1 / (  ((pow((m*ro),m)) / ((1-ro)*(Factorial(m))) ) + SumUp(m, ro));
+  double p_q = p_zero * ((pow((m*ro),m)) / (Factorial(m)*(1-ro)) );
+  // E(Tq) = Pq*E(s) / (1-ro)
+  double theorical_delay = (p_q * theorical_service) / (1-ro);
+
+  return theorical_delay;
+
+}
+
+double theoricalWaitMS(center *center){
+  
+  double mu = center->serviceParams->mean;
+  double theorical_delay = theoricalDelayMS(center);
+  double theorical_wait = theorical_delay + 1/mu;
+
+  return theorical_wait;
+
+}
+
 double visualizeStatisticsMultiservers(outputStats *output,center *center){
 
-    double theorical_lambda;
-    if(strcmp(center->name, "controlloBiglietti")==0){
-      theorical_lambda = lambda;
-    } 
-    if(strcmp(center->name, "foodArea")==0){
-      theorical_lambda = lambda*p_foodArea;
-    }
-    if(strcmp(center->name, "gadgetsArea")==0){
-      theorical_lambda = lambda*p_gadgetsArea + lambda*p_foodArea*p_gadgetsAfterFood;
-    }  
+    double theorical_lambda=theoricalLambda(center);
     double theorical_interarrival = 1/theorical_lambda;
     int m = center->servers;
     double mu = center->serviceParams->mean;
-    //printf("MU: %f\n", mu);
     /* E(s) = 1 / mu * m */
     double theorical_service = 1 / (mu*m);
     /* ro = lambda * E(s) */
     double ro = theorical_lambda*theorical_service;
-    //printf("RO: %f\n", ro);
-    double p_zero = 1 / (  ((pow((m*ro),m)) / ((1-ro)*(Factorial(m))) ) + SumUp(m, ro));
-    double p_q = p_zero * ((pow((m*ro),m)) / (Factorial(m)*(1-ro)) );
     // E(Tq) = Pq*E(s) / (1-ro)
-    double theorical_delay = (p_q * theorical_service) / (1-ro);
+    double theorical_delay = theoricalDelayMS(center);
     // E(Ts) = E(si) + E(Tq)
-    double theorical_wait = theorical_delay + 1/mu;
-
-    if(strcmp(center->name, "controlloBiglietti")==0){
-      TsControlloBiglietti = theorical_wait;
-    } 
-    if(strcmp(center->name, "foodArea")==0){
-      TsFoodArea = theorical_wait;    } 
-    if(strcmp(center->name, "gadgetsArea")==0){
-      TsGadgetsArea = theorical_wait;
-    } 
+    double theorical_wait = theoricalWaitMS(center);
     
-
 
     printf("\nSTATISTICHE\033[22;32m %s\033[0m per %.0f jobs [Fascia oraria %d] :\n\n", center->name, center->index, fasciaOraria);
     
-    printf("Pq = %f\n", p_q);
-    printf("P(o) = %f\n", p_zero);
     printf(" ______________________________________________________\n");
     printf("|   SIMULATION                          |   THEORICAL  |\n");
     printf("|_______________________________________|______________|\n");
@@ -324,13 +357,13 @@ void saveBatchStatsSS(int centerIndex, center *center, outputStats matrix[NUM_BA
   outputStats output = updateStatisticsSS(center);
   batchesCounter++;
   matrix[batches[centerIndex]][centerIndex] = output; /* save statistics in the matrix cell */
-  batches[centerIndex] += 1;
+  batches[centerIndex] = batches[centerIndex] + 1;
 }
 void saveBatchStatsMS(int centerIndex, center *center, outputStats matrix[NUM_BATCHES][NUM_CENTERS]){
   outputStats output = updateStatisticsMS(center);
   batchesCounter++;
   matrix[batches[centerIndex]][centerIndex] = output; /* save statistics in the matrix cell */
-  batches[centerIndex] += 1;
+  batches[centerIndex] = batches[centerIndex] + 1;
  
 }
 
@@ -350,6 +383,9 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
   for(int i=0; i<NUM_CENTERS+1; i++){
     batches[i] = 0;
   }
+
+  
+  double peopleInsideBeforeStop = 0.0;
 
 
   fasciaOraria = fascia_oraria;
@@ -480,22 +516,16 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
 
   int e;                      /* variabili per batch means */
   int i;
+  int run = 0;
 
-  double totalNumber = (biglietteria[0].number + biglietteria[1].number + controlloBiglietti.number + cassaFoodArea.number + foodArea.number + gadgetsArea.number);
   while (
-          ((finite) && ((event[0].t < STOP) || (totalNumber > 0))) ||
+          ((finite) && ((event[0].t < STOP) || ((biglietteria[0].number + biglietteria[1].number + controlloBiglietti.number + cassaFoodArea.number + foodArea.number + gadgetsArea.number) > 0))) ||
           ((!finite) && ( batchesCounter < n))){
-            /*
-    if(!finite){
-      
-      printf("[ ");
-      for(int j= 0; j<NUM_CENTERS+1; j++){
-        printf(" %d |", batches[j]);
-      }
-      printf(" ]\n");
-      
-    }*/
+    
+    
     e = NextEvent(event);                        /* next event index  */
+ 
+
     t.next = event[e].t;                         /* next event time   */
     for(int j=0; j<2; j++){
       updateIntegrals(&biglietteria[j], NULL);
@@ -716,7 +746,11 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
 
             break;
           case NONE:
-            none++;
+
+            if(t.current < PUBBLICITY_START){
+              peopleInsideBeforeStop++;
+            }
+            
             cinema.number--;
             cinema.index++;
             break;
@@ -849,9 +883,11 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
             event[10].x = 1;
             break;
           case NONE:
-            #ifdef DEBUG
-              printf("time after none: %f\n", tempo);
-            #endif
+
+            if(t.current < PUBBLICITY_START){
+              peopleInsideBeforeStop++;
+            }
+
             cinema.number--;
             cinema.index++;
             break;
@@ -898,6 +934,10 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
         gadgetsArea.index++;
         gadgetsArea.number--;
         gadgetsArea.lastService = t.current;
+
+        if(t.current < PUBBLICITY_START){
+            peopleInsideBeforeStop++;
+        }
         cinema.number--;
         cinema.index++;
 
@@ -972,7 +1012,6 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
       }
       
       if((cinema.index == b) && (batches[INDEX_CINEMA] < k)){
-        
         double obsTime = cinema.lastArrival - batchStart;
         batchStart = t.current;
         double cinemaAvgArrivalRate = cinema.index / obsTime;
@@ -1025,16 +1064,28 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
   
 
     //visualizzazione a schermo delle statistiche dei centri
-    
-
-}
-
     visualizeStatistics(&biglietteria0Output,&biglietteria[0]);
     visualizeStatistics(&biglietteria1Output,&biglietteria[1]);
     visualizeStatisticsMultiservers(&controlloBigliettiOutput,&controlloBiglietti);
     visualizeStatistics(&cassaFoodAreaOutput,&cassaFoodArea);
     visualizeStatisticsMultiservers(&foodAreaOutput,&foodArea);
     visualizeStatisticsMultiservers(&gadgetsAreaOutput,&gadgetsArea);
+
+
+    printf("\npeople that got in : %f", peopleInsideBeforeStop);
+    printf("\npeople in total: %f", cinema.index);
+    
+    double perc = (peopleInsideBeforeStop/cinema.index)*100;
+    printGreen("\n% people inside before the pubblicity starts : ");
+    printf("%.3f\n", perc);
+
+    printf("\nFIN: %f\n", t.current);
+
+    return perc;
+
+}
+
+    /* theorical wait calcolato con formula diversa */
     /*
     double L = 0.0;
     for(int i=0; i<6; i++){
@@ -1043,13 +1094,26 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
     printf("\n\n\nE[L] = %f\n",L);
     printf("E[W] = %f\n\n",L/7.166);
 
-*/
-  double theorical_wait = (1-p_online)*(0.5*TsBiglietteria0 + 0.5*TsBiglietteria1)+
+    */
+  if(!finite){
+    TsBiglietteria0 = theoricalWaitSS(&biglietteria[0]);
+    TsBiglietteria1 = theoricalWaitSS(&biglietteria[1]);
+    TsControlloBiglietti = theoricalWaitMS(&controlloBiglietti);
+    TsCassaFoodArea = theoricalWaitSS(&cassaFoodArea);
+    TsFoodArea = theoricalWaitMS(&foodArea);
+    TsGadgetsArea = theoricalWaitMS(&gadgetsArea);
+
+    double theorical_wait = (1-p_online)*(0.5*TsBiglietteria0 + 0.5*TsBiglietteria1)+
                             TsControlloBiglietti+
                             p_foodArea*(TsCassaFoodArea + TsFoodArea)+
                             p_gadgetsArea*TsGadgetsArea+ p_gadgetsAfterFood*p_foodArea*TsGadgetsArea;
-  system("cls");
-  printGreen("Theorical wait : ");
-  printf("%.3f\n",theorical_wait);
+  //system("cls");
+    printGreen("\nTheorical wait : ");
+    printf("%.3f\n", theorical_wait);
+  }
+  
+ 
+
+
   return 0.0;
 }

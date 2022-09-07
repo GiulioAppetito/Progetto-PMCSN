@@ -10,6 +10,10 @@
 
 char *statsNames[NUM_STATS] = {"avgInterarrivalTime","avgArrivalRate","avgWait","avgDelay","avgServiceTime","avgNumNode","avgNumQueue","utilization","systemResponseTime"};
 
+void printGreen(char *string){
+    printf("\033[22;32m%s\n\033[0m",string);
+}
+
 void writeStatsOnCSV(double intervalMatrix[(NUM_CENTERS+1)*(NUM_STATS)][3], outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS], char *FILEPATH){
 	//---CREAZIONE DI UN FILE csv
     FILE * fp;
@@ -28,7 +32,7 @@ void writeStatsOnCSV(double intervalMatrix[(NUM_CENTERS+1)*(NUM_STATS)][3], outp
 
 }
 
-void estimate(double array[], int lenght){
+void estimate(double array[], int lenght, char *phrase){
   long   n    = 0;                     /* counts data points */
   double sum  = 0.0;
   double mean = 0.0;
@@ -50,7 +54,8 @@ void estimate(double array[], int lenght){
     u = 1.0 - 0.5 * (1.0 - LOC);              /* interval parameter  */
     t = idfStudent(n - 1, u);                 /* critical value of t */
     w = t * stdev / sqrt(n - 1);              /* interval half width */
-    printf("\nCinema response time based upon %ld data points", n);
+    printf(phrase);
+    printf(" based upon %ld data points", n);
     printf(" and with %d%% confidence\n", (int) (100.0 * LOC + 0.5));
     printf("the expected value is in the interval ");
     printf("%.3f +/- %.3f\n", mean, w);
@@ -62,14 +67,15 @@ void estimate(double array[], int lenght){
 
 void finiteHorizonSimulation(int fasciaOraria){
         outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS];
-        double avgCinemaResponseTime[NUM_REPLICATIONS];
+        double percentagesPeopleForPubblicity[NUM_REPLICATIONS];
         double intervalMatrix[NUM_CENTERS*NUM_STATS][3];
         int i;
         for(i=0; i < NUM_REPLICATIONS; i++){
             printf("Replication %d\n", i);
-            avgCinemaResponseTime[i] = simulation(fasciaOraria, matrix[i], NULL, NULL, 1, 0, 0);
+            percentagesPeopleForPubblicity[i] = simulation(fasciaOraria, matrix[i], NULL, NULL, 1, 0, 0);
         }
-        printf("\n\n");
+
+        estimate(percentagesPeopleForPubblicity, NUM_REPLICATIONS, "Percentage of people inside for pubblicity");
         
 
         long   n[NUM_STATS];                    /* counts data points */
@@ -267,13 +273,11 @@ void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
                             p_foodArea*(matrix[batch][INDEX_CASSAFOODAREA].avgWait + matrix[batch][INDEX_FOODAREA].avgWait)+
                             p_gadgetsArea*(matrix[batch][INDEX_GADGETSAREA].avgWait)+ p_gadgetsAfterFood*p_foodArea*matrix[batch][INDEX_GADGETSAREA].avgWait;
     }
-    estimate(cinemaWait, k);
+    estimate(cinemaWait, k, "Cinema response time");
     printf("\n");
 }
 
-void printGreen(char *string){
-    printf("\033[22;32m%s\n\033[0m",string);
-}
+
 
 int main(void){
     int fasciaOraria;

@@ -2,8 +2,9 @@
 
 #define START         0.0                /* initial time                   */
 #define STOP_FINITE   60.0               /* terminal (close the door) time */
-#define STOP_INFINITE 5000000.0           
-#define INFINITY      (100.0 * STOP_FINITE)     /* must be much larger than STOP  */
+#define STOP_INFINITE 5000000.0      
+#define PUBBLICITY_START (STOP_FINITE-10.0)    
+#define INFINITY      (100.0 * STOP_INFINITE)     /* must be much larger than STOP  */
 
 /* ------------------------------
  * stream index for each one
