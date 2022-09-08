@@ -376,8 +376,8 @@ outputStats updateStatisticsBIGLIETTERIA(center *center){
   output.name = center->name;
   output.avgInterarrivalTime = ((center->lastArrival - center->firstArrival) / center->index);
   output.avgArrivalRate = center->index / (center->lastArrival - center->firstArrival);
-  output.avgWait = center->node / center->index;
-  output.avgDelay = center->queue / center->index;
+  output.avgWait = (center->node) / center->index;
+  output.avgDelay = (center->queue) / center->index;
   output.avgServiceTime = center->service / center->index;
   output.avgNumNode = (center->node) / (center->lastService - center->firstArrival);
   output.avgNumQueue = center->queue / (center->lastService - center->firstArrival);
@@ -1171,9 +1171,6 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
     TsBiglietteria0 = theoricalWaitSS(&biglietteria[0]);
     TsBiglietteria1 = theoricalWaitSS(&biglietteria[1]);
 
-    printf("ts biglietteria unica: %f\n", TsBIGLIETTERIAUNICA);
-    printf("ts biglietteria 0 e 1: %f + %f\n", TsBiglietteria0, TsBiglietteria1);
-
     TsControlloBiglietti = theoricalWaitMS(&controlloBiglietti);
     TsCassaFoodArea = theoricalWaitSS(&cassaFoodArea);
     TsFoodArea = theoricalWaitMS(&foodArea);
@@ -1188,10 +1185,11 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
                             TsControlloBiglietti+
                             p_foodArea*(TsCassaFoodArea + TsFoodArea)+
                             p_gadgetsArea*TsGadgetsArea+ p_gadgetsAfterFood*p_foodArea*TsGadgetsArea;
-  //system("cls");
+  
     printGreen("\nTheorical wait : ");
     printf("%.6f\n", theorical_wait);
-    printf("\nTheorical wait 2 : %f\n", theorical_wait_2);
+    printGreen("\nTheorical wait 2: ");
+    printf("%.6f\n", theorical_wait_2);
   }
   
  

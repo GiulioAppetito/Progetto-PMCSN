@@ -9,6 +9,7 @@
 #include "parameters.h"
 
 char *statsNames[NUM_STATS+1] = {"avgInterarrivalTime","avgArrivalRate","avgWait","avgDelay","avgServiceTime","avgNumNode","avgNumQueue","utilization","systemResponseTime"};
+FILE *fpWait;
 
 void printGreen(char *string){
     printf("\033[22;32m%s\n\033[0m",string);
@@ -33,7 +34,8 @@ void writeStatsOnCSV(double intervalMatrix[(NUM_CENTERS)*(NUM_STATS)][3], output
 }
 
 void estimate(double array[], int lenght, char *phrase){
-  long   n    = 0;                     /* counts data points */
+
+  long   n    = 0;                   
   double sum  = 0.0;
   double mean = 0.0;
   double data;
@@ -59,6 +61,41 @@ void estimate(double array[], int lenght, char *phrase){
     printf(" and with %d%% confidence\n", (int) (100.0 * LOC + 0.5));
     printf("the expected value is in the interval ");
     printf("%.3f +/- %.3f\n", mean, w);
+  }
+  else printf("ERROR - insufficient data\n");
+}
+
+void estimateCinemaWait(double array[], int k, char *phrase, int b){
+
+  long   n    = 0;                     /* counts data points */
+  double sum  = 0.0;
+  double mean = 0.0;
+  double data;
+  double stdev;
+  double u, t, w;
+  double diff;
+
+  for(int i=0; i<k; i++) {                 /* use Welford's one-pass method */
+    data = array[i];               /* to calculate the sample mean  */
+    n++;                                 /* and standard deviation        */
+    diff  = data - mean;
+    sum  += diff * diff * (n - 1.0) / n;
+    mean += diff / n;
+  }
+  stdev  = sqrt(sum / n);
+
+  if (n > 1) {
+    u = 1.0 - 0.5 * (1.0 - LOC);              /* interval parameter  */
+    t = idfStudent(n - 1, u);                 /* critical value of t */
+    w = t * stdev / sqrt(n - 1);              /* interval half width */
+    printf(phrase);
+    printf(" based upon %ld data points", n);
+    printf(" and with %d%% confidence\n", (int) (100.0 * LOC + 0.5));
+    printf("the expected value is in the interval ");
+    printf("%f +/- %f\n", mean, w);
+    //fprintf(fpWait,"%d,%d,%f,%f\n",b,k,mean,w);
+
+
   }
   else printf("ERROR - insufficient data\n");
 }
@@ -271,7 +308,7 @@ void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
                             p_foodArea*(matrix[batch][INDEX_CASSAFOODAREA].avgWait + matrix[batch][INDEX_FOODAREA].avgWait)+
                             p_gadgetsArea*(matrix[batch][INDEX_GADGETSAREA].avgWait)+ p_gadgetsAfterFood*p_foodArea*matrix[batch][INDEX_GADGETSAREA].avgWait;
     }
-    estimate(cinemaWait, k, "Cinema response time");
+    estimateCinemaWait(cinemaWait, k, "Cinema response time",b);
     printf("\n");
 }
 
@@ -302,9 +339,15 @@ int main(void){
     if(simulazione == 1){
         finiteHorizonSimulation(fasciaOraria);
     }else if(simulazione == 2){
+    
         int b = BATCH_SIZE;
         int k = NUM_BATCHES;
         infiniteHorizonSimulation(fasciaOraria,b,k);
+        /*
+        for(b=16; b<4096*8; b=b*2){
+            infiniteHorizonSimulation(fasciaOraria,b,k);
+        }
+       */ 
     }else{
         printf("Invalid choice.\n");
         goto simSelection;
@@ -317,4 +360,3 @@ int main(void){
     return 0;
     
 }
-
