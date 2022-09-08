@@ -349,6 +349,7 @@ outputStats updateStatisticsSS(center *center){
 }
 
 
+
 int batches[NUM_CENTERS+1]; 
 int b;
 
