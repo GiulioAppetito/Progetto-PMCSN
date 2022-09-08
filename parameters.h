@@ -19,6 +19,7 @@
 #define STREAM_ROUTING_TICKETMODE  7
 #define STREAM_ROUTING_CONTROLLO   8
 #define STREAM_ROUTING_GADGETS     9
+#define STREAM_BIGLIETTERIA_UNICA  10 
 
 /* --------------------------------------------
  * routing probabilities for each fasciaOraria
@@ -55,13 +56,12 @@
 /* ------------------------------
  * arrays index for each center
  * ------------------------------*/
-#define INDEX_BIGLIETTERIA0 0            
-#define INDEX_BIGLIETTERIA1 1
-#define INDEX_CONTROLLOBIGLIETTI 2
-#define INDEX_CASSAFOODAREA 3
-#define INDEX_FOODAREA 4
-#define INDEX_GADGETSAREA 5
-#define INDEX_CINEMA       6         
+#define INDEX_BIGLIETTERIA 0
+#define INDEX_CONTROLLOBIGLIETTI 1
+#define INDEX_CASSAFOODAREA 2
+#define INDEX_FOODAREA 3
+#define INDEX_GADGETSAREA 4
+#define INDEX_CINEMA       5         
 
 /* ------------------------------
  * finite horizon simulation
@@ -77,7 +77,7 @@
  * infinite horizon simulation
  * ------------------------------*/
 #define BATCH_SIZE   1024 /* b */
-#define NUM_BATCHES  64  /* k */
+#define NUM_BATCHES  256  /* k */
 
 double p_foodArea;
 double p_gadgetsArea;

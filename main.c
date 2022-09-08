@@ -8,19 +8,19 @@
 #include "rvgs.h"
 #include "parameters.h"
 
-char *statsNames[NUM_STATS] = {"avgInterarrivalTime","avgArrivalRate","avgWait","avgDelay","avgServiceTime","avgNumNode","avgNumQueue","utilization","systemResponseTime"};
+char *statsNames[NUM_STATS+1] = {"avgInterarrivalTime","avgArrivalRate","avgWait","avgDelay","avgServiceTime","avgNumNode","avgNumQueue","utilization","systemResponseTime"};
 
 void printGreen(char *string){
     printf("\033[22;32m%s\n\033[0m",string);
 }
 
-void writeStatsOnCSV(double intervalMatrix[(NUM_CENTERS+1)*(NUM_STATS)][3], outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS], char *FILEPATH){
+void writeStatsOnCSV(double intervalMatrix[(NUM_CENTERS)*(NUM_STATS)][3], outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS-1], char *FILEPATH){
 	//---CREAZIONE DI UN FILE csv
     FILE * fp;
     fp = fopen(FILEPATH, "w");
      
     //---SCRITTURA DEL FILE
-    for(int i=0; i<NUM_CENTERS*NUM_STATS; i++){
+    for(int i=0; i<(NUM_CENTERS-1)*NUM_STATS; i++){
         int center = intervalMatrix[i][0];
         double mean = intervalMatrix[i][1];
         double w = intervalMatrix[i][2];
@@ -60,15 +60,13 @@ void estimate(double array[], int lenght, char *phrase){
     printf("the expected value is in the interval ");
     printf("%.3f +/- %.3f\n", mean, w);
   }
-  else
-    printf("ERROR - insufficient data\n");
-  return (0);
+  else printf("ERROR - insufficient data\n");
 }
 
 void finiteHorizonSimulation(int fasciaOraria){
-        outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS];
+        outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS-1];
         double percentagesPeopleForPubblicity[NUM_REPLICATIONS];
-        double intervalMatrix[NUM_CENTERS*NUM_STATS][3];
+        double intervalMatrix[(NUM_CENTERS-1)*NUM_STATS][3];
         int i;
         for(i=0; i < NUM_REPLICATIONS; i++){
             printf("Replication %d\n", i);
@@ -115,7 +113,7 @@ void finiteHorizonSimulation(int fasciaOraria){
         }
 
         
-        for(center = 0; center < NUM_CENTERS; center++){
+        for(center = 0; center < NUM_CENTERS-1; center++){
             printGreen(matrix[0][center].name);
             for(replication=0; replication < NUM_REPLICATIONS - 1; replication++) { /* use Welford's one-pass method */
                 data[0] = matrix[replication][center].avgInterarrivalTime;          
@@ -165,10 +163,10 @@ void finiteHorizonSimulation(int fasciaOraria){
 }
 
 void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
-    outputStats matrix[k][NUM_CENTERS];                         //matrice per cui riga[i]==batch[i], colonna[j]==centro[j]
+    outputStats matrix[k][NUM_CENTERS-1];                         //matrice per cui riga[i]==batch[i], colonna[j]==centro[j]
     double cinemaWait[k];
-    double intervalMatrix[(NUM_CENTERS)*(NUM_STATS)][3];        
-    double x =simulation(fasciaOraria, NULL, matrix, cinemaWait, 0, b, k);
+    double intervalMatrix[(NUM_CENTERS-1)*(NUM_STATS)][3];        
+    simulation(fasciaOraria, NULL, matrix, cinemaWait, 0, b, k);
 
     long   n[NUM_STATS];                    /* counts data points */
     double sum[NUM_STATS];
@@ -199,7 +197,7 @@ void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
     printf("%d\n\n",k);
 
 
-    for(center = 0; center < NUM_CENTERS; center++){
+    for(center = 0; center < NUM_CENTERS-1; center++){
         printGreen(matrix[0][center].name);
         for(batch = 0; batch < k; batch++){
             data[0] = matrix[batch][center].avgInterarrivalTime;          
@@ -268,7 +266,7 @@ void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
     
     //cinema response time
     for(int batch=0; batch<k; batch++){
-        cinemaWait[batch] = (1-p_online)*(0.5*matrix[batch][INDEX_BIGLIETTERIA0].avgWait + 0.5*matrix[batch][INDEX_BIGLIETTERIA1].avgWait)+
+        cinemaWait[batch] = (1-p_online)*(matrix[batch][INDEX_BIGLIETTERIA].avgWait)+
                             matrix[batch][INDEX_CONTROLLOBIGLIETTI].avgWait+
                             p_foodArea*(matrix[batch][INDEX_CASSAFOODAREA].avgWait + matrix[batch][INDEX_FOODAREA].avgWait)+
                             p_gadgetsArea*(matrix[batch][INDEX_GADGETSAREA].avgWait)+ p_gadgetsAfterFood*p_foodArea*matrix[batch][INDEX_GADGETSAREA].avgWait;
@@ -308,7 +306,7 @@ int main(void){
         int k = NUM_BATCHES;
         infiniteHorizonSimulation(fasciaOraria,b,k);
     }else{
-        printRed("Invalid choice.\n");
+        printf("Invalid choice.\n");
         goto simSelection;
     }
 
