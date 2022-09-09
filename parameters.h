@@ -76,8 +76,10 @@
 /* ------------------------------
  * infinite horizon simulation
  * ------------------------------*/
-#define BATCH_SIZE   1024 /* b */
-#define NUM_BATCHES  256  /* k */
+#define BATCH_SIZE   4096 /* b */
+#define NUM_BATCHES  128  /* k */
+
+
 double p_foodArea;
 double p_gadgetsArea;
 double p_gadgetsAfterFood;
