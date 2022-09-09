@@ -133,19 +133,25 @@ void updateIntegralsBIGLIETTERIA(center *biglietteria, center *b1, center *b2){
         biglietteria->node    += (t.next - t.current) * (biglietteria->number);
 
         if(t.next != t.current){
-          if(biglietteria->number > 2){
-            biglietteria->queue   += (t.next - t.current) * (biglietteria->number - 2);
-            biglietteria->service += (t.next - t.current)*2;
-          }
-          if(biglietteria->number == 1){
+          if(b1->number > 1){
+            biglietteria->queue   += (t.next - t.current) * (b1->number - 1);
             biglietteria->service += (t.next - t.current);
           }
-          if(biglietteria->number == 2){
-            biglietteria->service += (t.next - t.current)*2;
+          if(b2->number > 1){
+            biglietteria->queue   += (t.next - t.current) * (b2->number - 1);
+            biglietteria->service += (t.next - t.current);
           }
+          if(b1->number == 1){
+            biglietteria->service += (t.next - t.current);
+          }
+          if(b2->number == 1){
+            biglietteria->service += (t.next - t.current);
+          }
+        
         }              
   }
 }
+
 
 void updateIntegrals(center *center, multiserver multiserver[]){
 
@@ -353,7 +359,7 @@ void visualizeRunParameters(double tot, double lambda, double p_foodArea, double
     printf("\033[22;30mp_foodArea ....................... = %.2f %s\033[0m\n",p_foodArea*100,a);
     printf("\033[22;30mp_gadgetsArea .................... = %.2f %s\033[0m\n",p_gadgetsArea*100,a);
     printf("\033[22;30mp_gadgetsAfterFood ............... = %.2f %s\033[0m\n\n",p_gadgetsAfterFood*100,a);
-    printf("\033[22;30mServer configuration\nbiglietteria[0] : %d\nbiglietteria[1] : %d\ncontrolloBiglietti : %d\ncassaFoodArea : %d\nfoodArea : %d\ngadgetsArea : %d\n\033[0m\n",SERVERS_BIGLIETTERIA,SERVERS_BIGLIETTERIA,SERVERS_CONTROLLO_BIGLIETTI,SERVERS_CASSA_FOOD_AREA,SERVERS_FOOD_AREA,SERVERS_GADGETS_AREA);
+    printf("\033[22;30mServer configuration \nbiglietteria : %d\ncontrolloBiglietti : %d\ncassaFoodArea : %d\nfoodArea : %d\ngadgetsArea : %d\n\033[0m\n",SERVERS_BIGLIETTERIA*2,SERVERS_CONTROLLO_BIGLIETTI,SERVERS_CASSA_FOOD_AREA,SERVERS_FOOD_AREA,SERVERS_GADGETS_AREA);
 
 }
 
@@ -417,6 +423,13 @@ void saveBatchStatsMS(int centerIndex, center *center, outputStats matrix[NUM_BA
   matrix[batches[centerIndex]][centerIndex] = output; /* save statistics in the matrix cell */
   batches[centerIndex] = batches[centerIndex] + 1;
  
+}
+void saveBatchStatsBiglietteria(int centerIndex, center *center, outputStats matrix[NUM_BATCHES][NUM_CENTERS-1]){
+  //printf("addr center: %p\n", center);
+  outputStats output = updateStatisticsBIGLIETTERIA(center);
+  batchesCounter++;
+  matrix[batches[centerIndex]][centerIndex] = output; /* save statistics in the matrix cell */
+  batches[centerIndex] = batches[centerIndex] + 1;
 }
 
 
@@ -1057,7 +1070,7 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
       */
 
       if((BIGLIETTERIAUNICA.index == b) && (batches[INDEX_BIGLIETTERIA] < k)){
-        saveBatchStatsMS(INDEX_BIGLIETTERIA, &BIGLIETTERIAUNICA, matrix);
+        saveBatchStatsBiglietteria(INDEX_BIGLIETTERIA, &BIGLIETTERIAUNICA, matrix);
         resetCenterStats(&BIGLIETTERIAUNICA, SERVERS_BIGLIETTERIA*2, "biglietteria");
       }
       if((controlloBiglietti.index == b) && (batches[INDEX_CONTROLLOBIGLIETTI] < k)){   /* save statistics for batch */

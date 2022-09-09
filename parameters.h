@@ -38,7 +38,8 @@
 /* ------------------------------------
  * number of servers for each center
  * ------------------------------------*/
-#define SERVERS_BIGLIETTERIA         1  
+#define SERVERS_BIGLIETTERIA         1  //*2
+
 #define SERVERS_CONTROLLO_BIGLIETTI  2
 #define SERVERS_CASSA_FOOD_AREA      1
 #define SERVERS_FOOD_AREA            4
@@ -56,12 +57,12 @@
 /* ------------------------------
  * arrays index for each center
  * ------------------------------*/
-#define INDEX_BIGLIETTERIA 0
+#define INDEX_BIGLIETTERIA       0
 #define INDEX_CONTROLLOBIGLIETTI 1
-#define INDEX_CASSAFOODAREA 2
-#define INDEX_FOODAREA 3
-#define INDEX_GADGETSAREA 4
-#define INDEX_CINEMA       5         
+#define INDEX_CASSAFOODAREA      2
+#define INDEX_FOODAREA           3
+#define INDEX_GADGETSAREA        4
+#define INDEX_CINEMA             5         
 
 /* ------------------------------
  * finite horizon simulation
@@ -76,7 +77,7 @@
 /* ------------------------------
  * infinite horizon simulation
  * ------------------------------*/
-#define BATCH_SIZE   4096 /* b */
+#define BATCH_SIZE   1024 /* b */
 #define NUM_BATCHES  128  /* k */
 
 
