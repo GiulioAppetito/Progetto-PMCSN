@@ -343,11 +343,6 @@ int main(void){
         int b = BATCH_SIZE;
         int k = NUM_BATCHES;
         infiniteHorizonSimulation(fasciaOraria,b,k);
-        /*
-        for(b=16; b<4096*8; b=b*2){
-            infiniteHorizonSimulation(fasciaOraria,b,k);
-        }
-       */ 
     }else{
         printf("Invalid choice.\n");
         goto simSelection;

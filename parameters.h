@@ -78,7 +78,6 @@
  * ------------------------------*/
 #define BATCH_SIZE   1024 /* b */
 #define NUM_BATCHES  256  /* k */
-
 double p_foodArea;
 double p_gadgetsArea;
 double p_gadgetsAfterFood;
