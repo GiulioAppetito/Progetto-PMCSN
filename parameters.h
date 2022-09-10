@@ -45,7 +45,7 @@
  * number of servers for each center
  * ------------------------------------*/
 #define SERVERS_BIGLIETTERIA         1  //*2
-#define SERVERS_CONTROLLO_BIGLIETTI  1
+#define SERVERS_CONTROLLO_BIGLIETTI  2
 #define SERVERS_CASSA_FOOD_AREA      1
 #define SERVERS_FOOD_AREA            3
 #define SERVERS_GADGETS_AREA         2
@@ -53,9 +53,9 @@
 /* ------------------------------
  * mean arrival rates
  * ------------------------------*/
-#define LAMBDA_1 5.166                   
+#define LAMBDA_1 7.166                   
 #define LAMBDA_2 6.500
-#define LAMBDA_3 5.166
+#define LAMBDA_3 3.166
 
 #define NUMBER_OF_EVENTS 12     
 
@@ -72,7 +72,7 @@
 /* ------------------------------
  * finite horizon simulation
  * ------------------------------*/
-#define NUM_REPLICATIONS 128            
+#define NUM_REPLICATIONS 256            
 #define NUM_CENTERS      6
 #define NUM_STATS        8
 #define SEED             123456789
@@ -82,8 +82,8 @@
 /* ------------------------------
  * infinite horizon simulation
  * ------------------------------*/
-#define BATCH_SIZE   1024 /* b */
-#define NUM_BATCHES  128  /* k */
+#define BATCH_SIZE   8192/* b */
+#define NUM_BATCHES  256  /* k */
 
 
 double p_foodArea;
