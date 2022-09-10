@@ -45,7 +45,7 @@
  * number of servers for each center
  * ------------------------------------*/
 #define SERVERS_BIGLIETTERIA         1  //*2
-#define SERVERS_CONTROLLO_BIGLIETTI  2
+#define SERVERS_CONTROLLO_BIGLIETTI  3
 #define SERVERS_CASSA_FOOD_AREA      1
 #define SERVERS_FOOD_AREA            3
 #define SERVERS_GADGETS_AREA         2

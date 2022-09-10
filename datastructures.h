@@ -47,7 +47,10 @@ typedef enum ticketMode{
   PHYSICAL
 } ticketMode;
 
-
+typedef struct confidenceInterval{
+  double mean;
+  double w;
+}confidenceInterval;
 
 typedef struct outputStats{
   double avgInterarrivalTime;

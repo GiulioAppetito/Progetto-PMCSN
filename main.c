@@ -108,12 +108,13 @@ void finiteHorizonSimulation(int fasciaOraria){
         outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS-1];
         double percentagesPeopleForPubblicity[NUM_REPLICATIONS];
         double intervalMatrix[(NUM_CENTERS-1)*NUM_STATS][3];
-        
+        double resultingRoutingProbabilities[NUM_REPLICATIONS][4];
+        double cinemaWait[NUM_REPLICATIONS];
 
         int i;
         for(i=0; i < NUM_REPLICATIONS; i++){
             printf("Replication %d\n", i);
-            percentagesPeopleForPubblicity[i] = simulation(fasciaOraria, matrix[i], NULL,NULL, NULL, 1, 0, 0);
+            percentagesPeopleForPubblicity[i] = simulation(fasciaOraria, matrix[i], NULL,NULL, resultingRoutingProbabilities, 1, 0, 0, i);
         }
 
         estimate(percentagesPeopleForPubblicity, NUM_REPLICATIONS, "Percentage of people inside for pubblicity");
@@ -203,6 +204,21 @@ void finiteHorizonSimulation(int fasciaOraria){
                 mean[i] = 0.0;
             }
         }
+
+        //cinema response time
+        for(int replication=0; replication<NUM_REPLICATIONS; replication++){
+
+            cinemaWait[replication] = (1-(resultingRoutingProbabilities[replication][0]))*(matrix[replication][INDEX_BIGLIETTERIA].avgWait)+
+                                matrix[replication][INDEX_CONTROLLOBIGLIETTI].avgWait+
+                                (resultingRoutingProbabilities[replication][1])*(matrix[replication][INDEX_CASSAFOODAREA].avgWait + matrix[replication][INDEX_FOODAREA].avgWait)+
+                                (resultingRoutingProbabilities[replication][2])*(matrix[replication][INDEX_GADGETSAREA].avgWait)+ (resultingRoutingProbabilities[replication][3]*resultingRoutingProbabilities[replication][1])*matrix[replication][INDEX_GADGETSAREA].avgWait;
+        }
+        
+        printf("\n\n");
+        for(int replication = 0; replication < NUM_REPLICATIONS; replication++){
+            printf("%f | ",cinemaWait[replication]);
+        }printf("\n\n");
+        estimateCinemaWait(cinemaWait, NUM_REPLICATIONS, "Cinema response time",NULL);
 }
 
 void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
@@ -211,7 +227,7 @@ void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
     double intervalMatrix[(NUM_CENTERS-1)*(NUM_STATS)][3];    
     double resultingRoutingProbabilities[k][4];                      /* p_online | p_food | p_gadgets | p_gadgetsAfterFood */    
     
-    simulation(fasciaOraria, NULL, matrix, cinemaWait, &resultingRoutingProbabilities, 0, b, k);
+    simulation(fasciaOraria, NULL, matrix, cinemaWait, &resultingRoutingProbabilities, 0, b, k, NULL);
 
     double p_food[k];
     double p_onlineTicket[k];
