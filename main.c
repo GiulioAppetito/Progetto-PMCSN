@@ -33,7 +33,7 @@ void writeStatsOnCSV(double intervalMatrix[(NUM_CENTERS)*(NUM_STATS)][3], output
 
 }
 
-void estimate(double array[], int lenght, char *phrase){
+confidenceInterval estimate(double array[], int lenght, char *phrase){
 
   long   n    = 0;                   
   double sum  = 0.0;
@@ -61,6 +61,10 @@ void estimate(double array[], int lenght, char *phrase){
     printf(" and with %d%% confidence\n", (int) (100.0 * LOC + 0.5));
     printf("the expected value is in the interval ");
     printf("%.3f +/- %.3f\n", mean, w);
+    confidenceInterval interval;
+    interval.mean = mean;
+    interval.w = w;
+    return interval;
   }
   else printf("ERROR - insufficient data\n");
 }
@@ -104,10 +108,12 @@ void finiteHorizonSimulation(int fasciaOraria){
         outputStats matrix[NUM_REPLICATIONS+1][NUM_CENTERS-1];
         double percentagesPeopleForPubblicity[NUM_REPLICATIONS];
         double intervalMatrix[(NUM_CENTERS-1)*NUM_STATS][3];
+        
+
         int i;
         for(i=0; i < NUM_REPLICATIONS; i++){
             printf("Replication %d\n", i);
-            percentagesPeopleForPubblicity[i] = simulation(fasciaOraria, matrix[i], NULL, NULL, 1, 0, 0);
+            percentagesPeopleForPubblicity[i] = simulation(fasciaOraria, matrix[i], NULL,NULL, NULL, 1, 0, 0);
         }
 
         estimate(percentagesPeopleForPubblicity, NUM_REPLICATIONS, "Percentage of people inside for pubblicity");
@@ -202,10 +208,39 @@ void finiteHorizonSimulation(int fasciaOraria){
 void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
     outputStats matrix[k][NUM_CENTERS-1];                         //matrice per cui riga[i]==batch[i], colonna[j]==centro[j]
     double cinemaWait[k];
-    double intervalMatrix[(NUM_CENTERS-1)*(NUM_STATS)][3];        
-    simulation(fasciaOraria, NULL, matrix, cinemaWait, 0, b, k);
+    double intervalMatrix[(NUM_CENTERS-1)*(NUM_STATS)][3];    
+    double resultingRoutingProbabilities[k][4];                      /* p_online | p_food | p_gadgets | p_gadgetsAfterFood */    
+    
+    simulation(fasciaOraria, NULL, matrix, cinemaWait, &resultingRoutingProbabilities, 0, b, k);
 
-    long   n[NUM_STATS];                    /* counts data points */
+    double p_food[k];
+    double p_onlineTicket[k];
+    double p_gadgets[k];
+    double p_gadgetsAndFood[k];
+
+    for(int i=0; i<k; i++){
+        p_onlineTicket[i] = resultingRoutingProbabilities[i][0];
+        p_food[i] = resultingRoutingProbabilities[i][1];
+        p_gadgets[i] = resultingRoutingProbabilities[i][2];
+        p_gadgetsAndFood[i] = resultingRoutingProbabilities[i][3];
+    }
+
+    printf("\n\p_gadgetsAndFood[] : \n");
+    for(int i=0; i<k;i++){
+        printf("%.3f | ",p_gadgetsAndFood[i]);
+    }
+    printf("\n\n");
+
+    confidenceInterval onlineProbabilityInterval;
+    confidenceInterval foodProbabilityInterval;
+    confidenceInterval gadgetsProbabilityInterval;
+    confidenceInterval gadgetsAndFoodProbabilityInterval;
+    onlineProbabilityInterval = estimate(p_onlineTicket, k, "Online probability");
+    foodProbabilityInterval = estimate(p_food, k, "Food probability");
+    gadgetsProbabilityInterval = estimate(p_gadgets, k, "Gadgets probability");
+    gadgetsAndFoodProbabilityInterval = estimate(p_gadgetsAndFood, k, "Gadgets and food probability");
+
+    long   n[NUM_STATS];                              /* counts data points */
     double sum[NUM_STATS];
     double mean[NUM_STATS];
     double data[NUM_STATS];
@@ -301,14 +336,16 @@ void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
         }
     }
     
+    
     //cinema response time
     for(int batch=0; batch<k; batch++){
-        cinemaWait[batch] = (1-p_online)*(matrix[batch][INDEX_BIGLIETTERIA].avgWait)+
+        cinemaWait[batch] = (1-(resultingRoutingProbabilities[batch][0]))*(matrix[batch][INDEX_BIGLIETTERIA].avgWait)+
                             matrix[batch][INDEX_CONTROLLOBIGLIETTI].avgWait+
-                            p_foodArea*(matrix[batch][INDEX_CASSAFOODAREA].avgWait + matrix[batch][INDEX_FOODAREA].avgWait)+
-                            p_gadgetsArea*(matrix[batch][INDEX_GADGETSAREA].avgWait)+ p_gadgetsAfterFood*p_foodArea*matrix[batch][INDEX_GADGETSAREA].avgWait;
+                            (resultingRoutingProbabilities[batch][1])*(matrix[batch][INDEX_CASSAFOODAREA].avgWait + matrix[batch][INDEX_FOODAREA].avgWait)+
+                            (resultingRoutingProbabilities[batch][2])*(matrix[batch][INDEX_GADGETSAREA].avgWait)+ (resultingRoutingProbabilities[batch][3]*resultingRoutingProbabilities[batch][1])*matrix[batch][INDEX_GADGETSAREA].avgWait;
     }
     estimateCinemaWait(cinemaWait, k, "Cinema response time",b);
+    
     printf("\n");
 }
 
