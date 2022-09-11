@@ -633,6 +633,15 @@ double simulation(int fascia_oraria, outputStats row[], outputStats matrix[NUM_B
         BIGLIETTERIAUNICA.lastArrival = t.current;
 
         i = routingAfterBiglietteria();
+
+        /* VERO ROUTING - POI LO FACCIAMO 
+        if(biglietteria[0].queue > biglietteria[1].queue){
+          i = 0;
+        }
+        else{
+          i = 1;
+        }
+        */
         biglietteria[i].number++;
         biglietteria[i].lastArrival = t.current;
 
