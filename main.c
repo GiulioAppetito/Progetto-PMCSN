@@ -9,8 +9,13 @@
 #include "rvgs.h"
 #include "parameters.h"
 
+#define GRAFICIVERIFICA
+
 char *statsNames[NUM_STATS+1] = {"avgInterarrivalTime","avgArrivalRate","avgWait","avgDelay","avgServiceTime","avgNumNode","avgNumQueue","utilization","systemResponseTime"};
 FILE *fpWait;
+FILE *fpBaseWait;
+FILE *fpBetterWait;
+
 
 void printGreen(char *string){
     printf("\033[22;32m%s\n\033[0m",string);
@@ -223,6 +228,8 @@ void finiteHorizonSimulation(int fasciaOraria){
         estimate(percentagesPeopleForPubblicity, NUM_REPLICATIONS, "Percentage of people inside for pubblicity");
         printf("\n");
         estimate(totalArrivals,NUM_REPLICATIONS,"Total arrivals number");
+
+        
 }
 
 void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
@@ -339,15 +346,17 @@ void infiniteHorizonSimulation(int fasciaOraria, int b, int k){
     }
     
     
+    
+    fprintf(fpBaseWait,"batch,wait\n");
     //cinema response time
     for(int batch=0; batch<k; batch++){
         cinemaWait[batch] = (1-(resultingRoutingProbabilities[batch][0]))*(matrix[batch][INDEX_BIGLIETTERIA].avgWait)+
                             matrix[batch][INDEX_CONTROLLOBIGLIETTI].avgWait+
                             (resultingRoutingProbabilities[batch][1])*(matrix[batch][INDEX_CASSAFOODAREA].avgWait + matrix[batch][INDEX_FOODAREA].avgWait)+
                             (resultingRoutingProbabilities[batch][2])*(matrix[batch][INDEX_GADGETSAREA].avgWait)+ (resultingRoutingProbabilities[batch][3]*resultingRoutingProbabilities[batch][1])*matrix[batch][INDEX_GADGETSAREA].avgWait;
+        fprintf(fpBaseWait, "%d,%.3f\n",batch,cinemaWait[batch]);
     }
     estimateCinemaWait(cinemaWait, k, "Cinema response time");
-    
     printf("\n");
 }
 
@@ -578,14 +587,19 @@ void betterInfiniteHorizonSimulation(int fasciaOraria, int b, int k){
     }
     
     
+    fprintf(fpBetterWait,"batch,wait\n");
     //cinema response time
     for(int batch=0; batch<k; batch++){
         cinemaWait[batch] = (1-(resultingRoutingProbabilities[batch][0]))*(matrix[batch][INDEX_BIGLIETTERIA].avgWait)+
                             matrix[batch][INDEX_CONTROLLOBIGLIETTI].avgWait+
                             (resultingRoutingProbabilities[batch][1])*(matrix[batch][INDEX_CASSAFOODAREA].avgWait + matrix[batch][INDEX_FOODAREA].avgWait)+
                             (resultingRoutingProbabilities[batch][2])*(matrix[batch][INDEX_GADGETSAREA].avgWait)+ (resultingRoutingProbabilities[batch][3]*resultingRoutingProbabilities[batch][1])*matrix[batch][INDEX_GADGETSAREA].avgWait;
+        fprintf(fpBetterWait, "%d,%.3f\n",batch,cinemaWait[batch]);
     }
     estimateCinemaWait(cinemaWait, k, "Cinema response time");
+
+    
+    
     
     printf("\n");
 }
@@ -616,14 +630,14 @@ int main(void){
     if(simulazione == 1){
         finiteHorizonSimulation(fasciaOraria);
     }else if(simulazione == 2){
-    
+        fpBaseWait = fopen("./baseSystemWait.csv","w");
         int b = BATCH_SIZE;
         int k = NUM_BATCHES;
         infiniteHorizonSimulation(fasciaOraria,b,k);
     }else if(simulazione == 3){
         betterFiniteHorizonSimulation(fasciaOraria);
     }else if(simulazione == 4){
-    
+        fpBetterWait = fopen("./miglioratoSystemWait.csv","w");
         int b = BATCH_SIZE;
         int k = NUM_BATCHES;
         betterInfiniteHorizonSimulation(fasciaOraria,b,k);

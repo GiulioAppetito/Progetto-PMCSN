@@ -10,7 +10,6 @@
 #include "rngs.h"                      /* the multi-stream generator */
 #include "rvgs.h"                      /* random variate generators  */
 #include "datastructures.h"
-//#include "ourlib.h"
 #include "parameters.h"
 
 #define NUMBER_OF_EVENTS1 10
@@ -116,7 +115,6 @@ double FindNextDeparture1(event ms[], int n_servers){
   return departure;
 }
 
-
 void resetCenterStats1(center *center, int servers, char *name){
   center->node=0.0;
   center->queue=0.0;
@@ -141,6 +139,7 @@ void initEvents1(event departures[], int num_servers){
       departures[i].t = INFINITY;
     }
 }
+
 
 double GetArrival1()
 /* ---------------------------------------------
@@ -484,7 +483,6 @@ double betterSimulation(int fascia_oraria, outputStats row[], outputStats matrix
     default:
       printRed("Selezione non valida.");
       return 0;
-
   }
 
  //inizializzazione multiserver
@@ -526,7 +524,6 @@ double betterSimulation(int fascia_oraria, outputStats row[], outputStats matrix
   biglietteria.number = 0.0;
   resetCenterStats1(&controlloBiglietti, SERVERS_CONTROLLO_BIGLIETTI, "controlloBiglietti");
   controlloBiglietti.number = 0.0;
-  //printf("CON BIGL INDEX = %f", controlloBiglietti.index);
   //return;
   resetCenterStats1(&cassaFoodArea, SERVERS_CASSA_FOOD_AREA,"cassaFoodArea");
   cassaFoodArea.number = 0.0;
@@ -573,14 +570,12 @@ double betterSimulation(int fascia_oraria, outputStats row[], outputStats matrix
   t.next = 0.0;
   t.last = 0.0;
 
-
   event[0].t = GetArrival1();  /* genero e salvo il primo arrivo */
   event[0].x   = 1;
   cinema.firstArrival = event[0].t;
   double batchStart = event[0].t;
 
   int e;                      /* variabili per batch means */
-
   while (((finite) && ((event[0].t < STOP1) || ((biglietteria.number + controlloBiglietti.number + cassaFoodArea.number + foodArea.number + gadgetsArea.number) > 0))) ||
         ((!finite) && ( batchesCounter1 < n1))){
     e = NextEvent1(event);                        /* next event index  */
@@ -699,6 +694,7 @@ double betterSimulation(int fascia_oraria, outputStats row[], outputStats matrix
         /* routing */
         event[2].t = event[e].t;
         event[2].x = 1;
+        eventType=2;
 
         break;
       
@@ -779,11 +775,12 @@ double betterSimulation(int fascia_oraria, outputStats row[], outputStats matrix
           case FOODAREA:
             event[4].t = tempo;
             event[4].x = 1;
+            eventType=4;
             break;
           case GADGETSAREA:
             event[8].t = tempo;
             event[8].x = 1;
-
+            eventType=8;
             break;
           case NONE:
 
@@ -831,7 +828,7 @@ double betterSimulation(int fascia_oraria, outputStats row[], outputStats matrix
         }
         event[6].t = tempo;
         event[6].x = 1;
-
+        eventType=6;
         break;
 
       case 6:             /* process an arrival to areaFood */
@@ -920,6 +917,7 @@ double betterSimulation(int fascia_oraria, outputStats row[], outputStats matrix
             #endif
             event[8].t = tempo;
             event[8].x = 1;
+            eventType=8;
             break;
           case NONE:
 
@@ -1050,7 +1048,6 @@ double betterSimulation(int fascia_oraria, outputStats row[], outputStats matrix
       if((cinema.index == b) && (batches1[INDEX_CINEMA] < k)){
         double obsTime = cinema.lastArrival - batchStart;
         batchStart = t.current;
-        //double cinemaAvgArrivalRate = cinema.index / obsTime;
 
         int batch = batches1[INDEX_CINEMA];
 
@@ -1150,7 +1147,7 @@ double betterSimulation(int fascia_oraria, outputStats row[], outputStats matrix
   
     printGreen("\nTheorical wait : ");
     printf("%.6f\n", theorical_wait);
-    
+
   }
   
   return 0.0;
